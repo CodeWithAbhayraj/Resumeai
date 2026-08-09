@@ -13,13 +13,17 @@ import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.springframework.stereotype.Component;
 
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.interactive.action.PDActionURI;
+import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 @Component
 public class PdfAgent {
 
-    private static final float MARGIN = 50;
+    private static final float MARGIN = 40;
     private static final float PAGE_WIDTH = PDRectangle.A4.getWidth();
     private static final float PAGE_HEIGHT = PDRectangle.A4.getHeight();
 
@@ -50,15 +54,13 @@ public class PdfAgent {
 
             yPosition -= 22;
 
-            writeCentered(
+            writeContactInfo(
+                    document,
+                    page,
                     content,
-                    safe(resume.getEmail())
-                            + " | "
-                            + safe(resume.getGithub())
-                            + " | "
-                            + safe(resume.getLinkedin()),
-                    9,
-                    false
+                    resume.getEmail(),
+                    resume.getGithub(),
+                    resume.getLinkedin()
             );
 
             yPosition -= 25;
@@ -67,7 +69,7 @@ public class PdfAgent {
             // PROFESSIONAL SUMMARY
             // =========================
 
-            writeSectionTitle(content, "PROFESSIONAL SUMMARY");
+            writeSectionTitle(content, "SUMMARY");
 
             writeWrappedText(
                     content,
@@ -118,11 +120,15 @@ public class PdfAgent {
                 );
             }
 
+            yPosition -= 8;
+
             // =========================
             // PROJECTS
             // =========================
 
             writeSectionTitle(content, "PROJECTS");
+
+            yPosition -= 2;
 
             if (resume.getProjects() != null) {
 
@@ -197,7 +203,7 @@ public class PdfAgent {
                             9
                     );
 
-                    yPosition -= 6;
+                    yPosition -= 8;
                 }
             }
 
@@ -205,9 +211,10 @@ public class PdfAgent {
 // EXPERIENCE
 // =========================
 
-            writeSectionTitle(content, "EXPERIENCE");
+            if (resume.getExperience() != null
+                    && !resume.getExperience().isEmpty()) {
 
-            if (resume.getExperience() != null) {
+                writeSectionTitle(content, "EXPERIENCE");
 
                 for (ExperienceDTO experience :
                         resume.getExperience()) {
@@ -220,6 +227,16 @@ public class PdfAgent {
                             10
                     );
 
+                    if (experience.getDuration() != null
+                            && !experience.getDuration().isBlank()) {
+
+                        writeWrappedText(
+                                content,
+                                experience.getDuration(),
+                                9
+                        );
+                    }
+
                     if (experience.getDescription() != null
                             && !experience.getDescription().isBlank()) {
 
@@ -228,6 +245,7 @@ public class PdfAgent {
                                 experience.getDescription()
                         );
                     }
+                    yPosition -= 8;
                 }
             }
 
@@ -265,6 +283,7 @@ public class PdfAgent {
                     e
             );
         }
+
     }
 
     // =====================================================
@@ -276,7 +295,11 @@ public class PdfAgent {
             String title
     ) throws IOException {
 
-        yPosition -= 8;
+        if (title == null || title.isBlank()) {
+            return;
+        }
+
+        yPosition -= 4;
 
         content.beginText();
 
@@ -284,7 +307,7 @@ public class PdfAgent {
                 new PDType1Font(
                         Standard14Fonts.FontName.HELVETICA_BOLD
                 ),
-                12
+                11
         );
 
         content.newLineAtOffset(
@@ -292,11 +315,11 @@ public class PdfAgent {
                 yPosition
         );
 
-        content.showText(title);
+        content.showText(clean(title.toUpperCase()));
 
         content.endText();
 
-        yPosition -= 18;
+        yPosition -= 13;
     }
 
     // =====================================================
@@ -425,8 +448,110 @@ public class PdfAgent {
         );
     }
 
+
     // =====================================================
-    // CENTERED TEXT
+    // writeContact
+    // =====================================================
+
+    private void writeContactInfo(
+            PDDocument document,
+            PDPage page,
+            PDPageContentStream content,
+            String email,
+            String github,
+            String linkedin
+    ) throws IOException {
+
+        float fontSize = 9;
+        float x = MARGIN;
+
+        String[] labels = {
+                safe(email),
+                safe(github),
+                safe(linkedin)
+        };
+
+        String[] urls = {
+                "mailto:" + safe(email),
+                safe(github).startsWith("http")
+                        ? safe(github)
+                        : "https://" + safe(github),
+                safe(linkedin).startsWith("http")
+                        ? safe(linkedin)
+                        : "https://" + safe(linkedin)
+        };
+
+        PDType1Font font = new PDType1Font(
+                Standard14Fonts.FontName.HELVETICA
+        );
+
+        content.beginText();
+
+        content.setFont(font, fontSize);
+
+        content.newLineAtOffset(x, yPosition);
+
+        for (int i = 0; i < labels.length; i++) {
+
+            String text = labels[i];
+
+            if (text.isBlank()) {
+                continue;
+            }
+
+            float textWidth =
+                    font.getStringWidth(clean(text))
+                            / 1000
+                            * fontSize;
+
+            // Draw text
+            content.showText(clean(text));
+
+            // Create clickable area
+            PDAnnotationLink link =
+                    new PDAnnotationLink();
+
+            link.setRectangle(
+                    new PDRectangle(
+                            x,
+                            yPosition - 3,
+                            textWidth,
+                            fontSize + 5
+                    )
+            );
+
+            PDActionURI action =
+                    new PDActionURI();
+
+            action.setURI(urls[i]);
+
+            link.setAction(action);
+
+            page.getAnnotations().add(link);
+
+            x += textWidth;
+
+            // Separator
+            if (i < labels.length - 1) {
+
+                String separator = " | ";
+
+                content.showText(separator);
+
+                x += font.getStringWidth(separator)
+                        / 1000
+                        * fontSize;
+            }
+        }
+
+        content.endText();
+    }
+
+
+
+
+    // =====================================================
+    // writeCentered
     // =====================================================
 
     private void writeCentered(
@@ -501,19 +626,17 @@ public class PdfAgent {
         yPosition -= fontSize + 3;
     }
 
-    // =====================================================
-    // PAGE SPACE
-    // =====================================================
+// =====================================================
+// PAGE SPACE
+// =====================================================
 
     private void ensureSpace() {
 
-        if (yPosition < 50) {
+        if (yPosition < 35) {
 
-            // Basic version:
-            // current implementation keeps content
-            // within the first page.
-
-            yPosition = 50;
+            throw new RuntimeException(
+                    "Resume content exceeds one A4 page."
+            );
         }
     }
 

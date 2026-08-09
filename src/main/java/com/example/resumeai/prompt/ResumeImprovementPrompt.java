@@ -41,6 +41,23 @@ public class ResumeImprovementPrompt {
             24. Keep certification information accurate.
             25. Do not remove relevant existing information unless necessary.
             26. Do not add unnecessary personal information.
+            27. The final resume MUST be concise enough to fit on ONE A4 page.
+            
+            28. Keep the professional summary concise and approximately 2-3 lines.
+            
+            29. For each project, include a maximum of 3 highly relevant bullet points.
+            
+            30. Keep each project bullet concise, achievement-oriented, and ATS-friendly.
+            
+            31. Prioritize skills, projects, and experience that are most relevant to the Job Description.
+            
+            32. If the original resume contains excessive information, summarize it without changing its meaning.
+            
+            33. Do not remove important education, relevant experience, certifications, or core technical skills.
+            
+            34. Do not add unnecessary content just to make the resume longer.
+            
+            35. The final output must contain only the most relevant information required for a professional one-page ATS-friendly resume.
 
             RETURN JSON IN EXACTLY THIS STRUCTURE:
 
