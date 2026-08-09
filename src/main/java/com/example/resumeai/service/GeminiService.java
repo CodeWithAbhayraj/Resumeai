@@ -43,7 +43,25 @@ public class GeminiService {
             return result;
 
         } catch (Exception e) {
-            throw new RuntimeException("Error while calling Gemini API: " + e.getMessage(), e);
+
+            String message = e.getMessage();
+
+            // Gemini API quota / rate limit
+            if (message != null && message.contains("429")) {
+
+                return """
+                        {
+                          "error": "Gemini API quota exceeded",
+                          "message": "Gemini free-tier request limit has been exceeded. Please wait for the quota to reset or use a project with available Gemini API quota."
+                        }
+                        """;
+            }
+
+            // Other Gemini errors
+            throw new RuntimeException(
+                    "Error while calling Gemini API: " + message,
+                    e
+            );
         }
     }
 }
