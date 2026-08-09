@@ -463,91 +463,202 @@ public class PdfAgent {
     ) throws IOException {
 
         float fontSize = 9;
-        float x = MARGIN;
-
-        String[] labels = {
-                safe(email),
-                safe(github),
-                safe(linkedin)
-        };
-
-        String[] urls = {
-                "mailto:" + safe(email),
-                safe(github).startsWith("http")
-                        ? safe(github)
-                        : "https://" + safe(github),
-                safe(linkedin).startsWith("http")
-                        ? safe(linkedin)
-                        : "https://" + safe(linkedin)
-        };
 
         PDType1Font font = new PDType1Font(
                 Standard14Fonts.FontName.HELVETICA
         );
 
+        String emailText = safe(email);
+        String githubText = safe(github);
+        String linkedinText = safe(linkedin);
+
+        String separator = " | ";
+
+        // Total text width calculate karo
+        float totalWidth = 0;
+
+        if (!emailText.isBlank()) {
+            totalWidth += font.getStringWidth(clean(emailText))
+                    / 1000 * fontSize;
+        }
+
+        if (!githubText.isBlank()) {
+            totalWidth += font.getStringWidth(clean(githubText))
+                    / 1000 * fontSize;
+        }
+
+        if (!linkedinText.isBlank()) {
+            totalWidth += font.getStringWidth(clean(linkedinText))
+                    / 1000 * fontSize;
+        }
+
+        // Separators ki width
+        int numberOfLinks = 0;
+
+        if (!emailText.isBlank()) numberOfLinks++;
+        if (!githubText.isBlank()) numberOfLinks++;
+        if (!linkedinText.isBlank()) numberOfLinks++;
+
+        if (numberOfLinks > 1) {
+
+            totalWidth +=
+                    (numberOfLinks - 1)
+                            * font.getStringWidth(separator)
+                            / 1000
+                            * fontSize;
+        }
+
+        // Center position calculate
+        float x = (PAGE_WIDTH - totalWidth) / 2;
+
         content.beginText();
 
         content.setFont(font, fontSize);
 
-        content.newLineAtOffset(x, yPosition);
+        content.newLineAtOffset(
+                x,
+                yPosition
+        );
 
-        for (int i = 0; i < labels.length; i++) {
+        // =========================
+        // EMAIL
+        // =========================
 
-            String text = labels[i];
-
-            if (text.isBlank()) {
-                continue;
-            }
+        if (!emailText.isBlank()) {
 
             float textWidth =
-                    font.getStringWidth(clean(text))
+                    font.getStringWidth(clean(emailText))
                             / 1000
                             * fontSize;
 
-            // Draw text
-            content.showText(clean(text));
+            content.showText(clean(emailText));
 
-            // Create clickable area
             PDAnnotationLink link =
                     new PDAnnotationLink();
 
-            link.setRectangle(
+            PDRectangle rectangle =
                     new PDRectangle(
-                            x,
-                            yPosition - 3,
                             textWidth,
                             fontSize + 5
-                    )
-            );
+                    );
+
+            rectangle.setLowerLeftX(x);
+            rectangle.setLowerLeftY(yPosition - 3);
+
+            link.setRectangle(rectangle);
 
             PDActionURI action =
                     new PDActionURI();
 
-            action.setURI(urls[i]);
+            action.setURI(
+                    "mailto:" + emailText
+            );
 
             link.setAction(action);
 
             page.getAnnotations().add(link);
 
             x += textWidth;
+        }
 
-            // Separator
-            if (i < labels.length - 1) {
+        // =========================
+        // GITHUB
+        // =========================
 
-                String separator = " | ";
+        if (!githubText.isBlank()) {
 
-                content.showText(separator);
+            content.showText(separator);
 
-                x += font.getStringWidth(separator)
-                        / 1000
-                        * fontSize;
-            }
+            x += font.getStringWidth(separator)
+                    / 1000
+                    * fontSize;
+
+            float textWidth =
+                    font.getStringWidth(clean(githubText))
+                            / 1000
+                            * fontSize;
+
+            content.showText(clean(githubText));
+
+            PDAnnotationLink link =
+                    new PDAnnotationLink();
+
+            PDRectangle rectangle =
+                    new PDRectangle(
+                            textWidth,
+                            fontSize + 5
+                    );
+
+            rectangle.setLowerLeftX(x);
+            rectangle.setLowerLeftY(yPosition - 3);
+
+            link.setRectangle(rectangle);
+
+            PDActionURI action =
+                    new PDActionURI();
+
+            action.setURI(
+                    githubText.startsWith("http")
+                            ? githubText
+                            : "https://" + githubText
+            );
+
+            link.setAction(action);
+
+            page.getAnnotations().add(link);
+
+            x += textWidth;
+        }
+
+        // =========================
+        // LINKEDIN
+        // =========================
+
+        if (!linkedinText.isBlank()) {
+
+            content.showText(separator);
+
+            x += font.getStringWidth(separator)
+                    / 1000
+                    * fontSize;
+
+            float textWidth =
+                    font.getStringWidth(clean(linkedinText))
+                            / 1000
+                            * fontSize;
+
+            content.showText(clean(linkedinText));
+
+            PDAnnotationLink link =
+                    new PDAnnotationLink();
+
+            PDRectangle rectangle =
+                    new PDRectangle(
+                            textWidth,
+                            fontSize + 5
+                    );
+
+            rectangle.setLowerLeftX(x);
+            rectangle.setLowerLeftY(yPosition - 3);
+
+            link.setRectangle(rectangle);
+
+            PDActionURI action =
+                    new PDActionURI();
+
+            action.setURI(
+                    linkedinText.startsWith("http")
+                            ? linkedinText
+                            : "https://" + linkedinText
+            );
+
+            link.setAction(action);
+
+            page.getAnnotations().add(link);
         }
 
         content.endText();
     }
-
-
 
 
     // =====================================================
