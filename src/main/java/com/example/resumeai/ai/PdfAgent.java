@@ -520,42 +520,57 @@ public class PdfAgent {
                 yPosition
         );
 
-        // =========================
-// EMAIL
+// =========================
+// GITHUB
 // =========================
 
-        if (!emailText.isBlank()) {
+        if (!githubText.isBlank()) {
+
+            content.showText(separator);
+
+            x += font.getStringWidth(separator)
+                    / 1000
+                    * fontSize;
 
             float textWidth =
-                    font.getStringWidth(clean(emailText))
+                    font.getStringWidth(clean(githubText))
                             / 1000
                             * fontSize;
 
-            content.showText(clean(emailText));
+            content.showText(clean(githubText));
 
             PDAnnotationLink link =
                     new PDAnnotationLink();
 
-            // Remove yellow highlight when clicking
+            // Exact clickable area
+            PDRectangle rectangle = new PDRectangle();
+
+            rectangle.setLowerLeftX(x);
+            rectangle.setLowerLeftY(yPosition - 2);
+
+            rectangle.setUpperRightX(
+                    x + textWidth
+            );
+
+            rectangle.setUpperRightY(
+                    yPosition + fontSize + 2
+            );
+
+            link.setRectangle(rectangle);
+
+            // Click karne par yellow highlight nahi
             link.setHighlightMode(
                     PDAnnotationLink.HIGHLIGHT_MODE_NONE
             );
 
-            PDRectangle rectangle =
-                    new PDRectangle(
-                            textWidth,
-                            fontSize + 5
-                    );
-
-            rectangle.setLowerLeftX(x);
-            rectangle.setLowerLeftY(yPosition - 3);
-
-            link.setRectangle(rectangle);
-
             PDActionURI action =
                     new PDActionURI();
 
-            action.setURI("mailto:" + emailText);
+            action.setURI(
+                    githubText.startsWith("http")
+                            ? githubText
+                            : "https://" + githubText
+            );
 
             link.setAction(action);
 
@@ -563,7 +578,6 @@ public class PdfAgent {
 
             x += textWidth;
         }
-
 
 // =========================
 // GITHUB
@@ -587,19 +601,24 @@ public class PdfAgent {
             PDAnnotationLink link =
                     new PDAnnotationLink();
 
-            // Remove yellow highlight when clicking
+            // Yellow highlight disable
             link.setHighlightMode(
                     PDAnnotationLink.HIGHLIGHT_MODE_NONE
             );
 
-            PDRectangle rectangle =
-                    new PDRectangle(
-                            textWidth,
-                            fontSize + 5
-                    );
+            // Exact clickable area of GitHub text
+            PDRectangle rectangle = new PDRectangle();
 
             rectangle.setLowerLeftX(x);
-            rectangle.setLowerLeftY(yPosition - 3);
+            rectangle.setLowerLeftY(yPosition - 2);
+
+            rectangle.setUpperRightX(
+                    x + textWidth
+            );
+
+            rectangle.setUpperRightY(
+                    yPosition + fontSize + 2
+            );
 
             link.setRectangle(rectangle);
 
@@ -618,7 +637,6 @@ public class PdfAgent {
 
             x += textWidth;
         }
-
 
         // =========================
         // LINKEDIN
@@ -644,14 +662,18 @@ public class PdfAgent {
 
             link.setHighlightMode(PDAnnotationLink.HIGHLIGHT_MODE_NONE);
 
-            PDRectangle rectangle =
-                    new PDRectangle(
-                            textWidth,
-                            fontSize + 5
-                    );
+            PDRectangle rectangle = new PDRectangle();
 
             rectangle.setLowerLeftX(x);
-            rectangle.setLowerLeftY(yPosition - 3);
+            rectangle.setLowerLeftY(yPosition - 2);
+
+            rectangle.setUpperRightX(
+                    x + textWidth
+            );
+
+            rectangle.setUpperRightY(
+                    yPosition + fontSize + 2
+            );
 
             link.setRectangle(rectangle);
 
