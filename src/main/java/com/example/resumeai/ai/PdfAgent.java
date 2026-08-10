@@ -13,7 +13,7 @@ import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.springframework.stereotype.Component;
 
-import org.apache.pdfbox.pdmodel.common.PDRectangle;
+
 import org.apache.pdfbox.pdmodel.interactive.action.PDActionURI;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink;
 
@@ -521,8 +521,8 @@ public class PdfAgent {
         );
 
         // =========================
-        // EMAIL
-        // =========================
+// EMAIL
+// =========================
 
         if (!emailText.isBlank()) {
 
@@ -535,6 +535,11 @@ public class PdfAgent {
 
             PDAnnotationLink link =
                     new PDAnnotationLink();
+
+            // Remove yellow highlight when clicking
+            link.setHighlightMode(
+                    PDAnnotationLink.HIGHLIGHT_MODE_NONE
+            );
 
             PDRectangle rectangle =
                     new PDRectangle(
@@ -550,9 +555,7 @@ public class PdfAgent {
             PDActionURI action =
                     new PDActionURI();
 
-            action.setURI(
-                    "mailto:" + emailText
-            );
+            action.setURI("mailto:" + emailText);
 
             link.setAction(action);
 
@@ -561,9 +564,10 @@ public class PdfAgent {
             x += textWidth;
         }
 
-        // =========================
-        // GITHUB
-        // =========================
+
+// =========================
+// GITHUB
+// =========================
 
         if (!githubText.isBlank()) {
 
@@ -582,6 +586,11 @@ public class PdfAgent {
 
             PDAnnotationLink link =
                     new PDAnnotationLink();
+
+            // Remove yellow highlight when clicking
+            link.setHighlightMode(
+                    PDAnnotationLink.HIGHLIGHT_MODE_NONE
+            );
 
             PDRectangle rectangle =
                     new PDRectangle(
@@ -610,6 +619,7 @@ public class PdfAgent {
             x += textWidth;
         }
 
+
         // =========================
         // LINKEDIN
         // =========================
@@ -631,6 +641,8 @@ public class PdfAgent {
 
             PDAnnotationLink link =
                     new PDAnnotationLink();
+
+            link.setHighlightMode(PDAnnotationLink.HIGHLIGHT_MODE_NONE);
 
             PDRectangle rectangle =
                     new PDRectangle(
