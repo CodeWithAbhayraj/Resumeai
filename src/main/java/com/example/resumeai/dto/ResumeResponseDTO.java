@@ -17,6 +17,8 @@ public class ResumeResponseDTO {
 
     private List<ProjectDTO> projects;
 
+    private String professionalSummary;
+
     private List<EducationDTO> education;
 
     private List<String> experience;
