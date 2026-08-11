@@ -579,64 +579,7 @@ public class PdfAgent {
             x += textWidth;
         }
 
-// =========================
-// GITHUB
-// =========================
 
-        if (!githubText.isBlank()) {
-
-            content.showText(separator);
-
-            x += font.getStringWidth(separator)
-                    / 1000
-                    * fontSize;
-
-            float textWidth =
-                    font.getStringWidth(clean(githubText))
-                            / 1000
-                            * fontSize;
-
-            content.showText(clean(githubText));
-
-            PDAnnotationLink link =
-                    new PDAnnotationLink();
-
-            // Yellow highlight disable
-            link.setHighlightMode(
-                    PDAnnotationLink.HIGHLIGHT_MODE_NONE
-            );
-
-            // Exact clickable area of GitHub text
-            PDRectangle rectangle = new PDRectangle();
-
-            rectangle.setLowerLeftX(x);
-            rectangle.setLowerLeftY(yPosition - 2);
-
-            rectangle.setUpperRightX(
-                    x + textWidth
-            );
-
-            rectangle.setUpperRightY(
-                    yPosition + fontSize + 2
-            );
-
-            link.setRectangle(rectangle);
-
-            PDActionURI action =
-                    new PDActionURI();
-
-            action.setURI(
-                    githubText.startsWith("http")
-                            ? githubText
-                            : "https://" + githubText
-            );
-
-            link.setAction(action);
-
-            page.getAnnotations().add(link);
-
-            x += textWidth;
-        }
 
         // =========================
         // LINKEDIN
