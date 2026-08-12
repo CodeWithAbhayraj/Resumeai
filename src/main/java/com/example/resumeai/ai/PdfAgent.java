@@ -524,6 +524,20 @@ public class PdfAgent {
 // GITHUB
 // =========================
 
+
+        if (!emailText.isBlank()) {
+
+            content.showText(clean(emailText));
+
+            x += font.getStringWidth(clean(emailText))
+                    / 1000
+                    * fontSize;
+        }
+
+// =========================
+// GITHUB
+// =========================
+
         if (!githubText.isBlank()) {
 
             content.showText(separator);
