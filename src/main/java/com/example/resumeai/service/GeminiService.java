@@ -31,7 +31,9 @@ public class GeminiService {
             String result = response.text();
 
             if (result == null || result.isBlank()) {
-                return "No response received from Gemini.";
+                throw new RuntimeException(
+                        "No response received from Gemini."
+                );
             }
 
             // Remove Markdown if Gemini returns ```json ... ```
@@ -49,12 +51,11 @@ public class GeminiService {
             // Gemini API quota / rate limit
             if (message != null && message.contains("429")) {
 
-                return """
-                        {
-                          "error": "Gemini API quota exceeded",
-                          "message": "Gemini free-tier request limit has been exceeded. Please wait for the quota to reset or use a project with available Gemini API quota."
-                        }
-                        """;
+                throw new RuntimeException(
+                        "Gemini API quota exceeded. " +
+                                "Please wait for quota reset or use a Gemini API project " +
+                                "with available quota."
+                );
             }
 
             // Other Gemini errors

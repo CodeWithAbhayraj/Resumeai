@@ -474,42 +474,48 @@ public class PdfAgent {
 
         String separator = " | ";
 
-        // Total text width calculate karo
-        float totalWidth = 0;
+        float emailWidth = emailText.isBlank()
+                ? 0
+                : font.getStringWidth(clean(emailText))
+                / 1000 * fontSize;
+
+        float githubWidth = githubText.isBlank()
+                ? 0
+                : font.getStringWidth(clean(githubText))
+                / 1000 * fontSize;
+
+        float linkedinWidth = linkedinText.isBlank()
+                ? 0
+                : font.getStringWidth(clean(linkedinText))
+                / 1000 * fontSize;
+
+        float separatorWidth =
+                font.getStringWidth(separator)
+                        / 1000 * fontSize;
+
+        int numberOfItems = 0;
 
         if (!emailText.isBlank()) {
-            totalWidth += font.getStringWidth(clean(emailText))
-                    / 1000 * fontSize;
+            numberOfItems++;
         }
 
         if (!githubText.isBlank()) {
-            totalWidth += font.getStringWidth(clean(githubText))
-                    / 1000 * fontSize;
+            numberOfItems++;
         }
 
         if (!linkedinText.isBlank()) {
-            totalWidth += font.getStringWidth(clean(linkedinText))
-                    / 1000 * fontSize;
+            numberOfItems++;
         }
 
-        // Separators ki width
-        int numberOfLinks = 0;
+        float totalWidth =
+                emailWidth
+                        + githubWidth
+                        + linkedinWidth
+                        + Math.max(0, numberOfItems - 1)
+                        * separatorWidth;
 
-        if (!emailText.isBlank()) numberOfLinks++;
-        if (!githubText.isBlank()) numberOfLinks++;
-        if (!linkedinText.isBlank()) numberOfLinks++;
-
-        if (numberOfLinks > 1) {
-
-            totalWidth +=
-                    (numberOfLinks - 1)
-                            * font.getStringWidth(separator)
-                            / 1000
-                            * fontSize;
-        }
-
-        // Center position calculate
-        float x = (PAGE_WIDTH - totalWidth) / 2;
+        float x =
+                (PAGE_WIDTH - totalWidth) / 2;
 
         content.beginText();
 
@@ -520,44 +526,43 @@ public class PdfAgent {
                 yPosition
         );
 
-// =========================
-// GITHUB
-// =========================
-
+        // =========================
+        // EMAIL
+        // =========================
 
         if (!emailText.isBlank()) {
 
-            content.showText(clean(emailText));
+            content.showText(
+                    clean(emailText)
+            );
 
-            x += font.getStringWidth(clean(emailText))
-                    / 1000
-                    * fontSize;
+            x += emailWidth;
         }
 
-// =========================
-// GITHUB
-// =========================
+        // =========================
+        // GITHUB
+        // =========================
 
         if (!githubText.isBlank()) {
 
-            content.showText(separator);
+            if (!emailText.isBlank()) {
 
-            x += font.getStringWidth(separator)
-                    / 1000
-                    * fontSize;
+                content.showText(separator);
 
-            float textWidth =
-                    font.getStringWidth(clean(githubText))
-                            / 1000
-                            * fontSize;
+                x += separatorWidth;
+            }
 
-            content.showText(clean(githubText));
+            float textWidth = githubWidth;
+
+            content.showText(
+                    clean(githubText)
+            );
 
             PDAnnotationLink link =
                     new PDAnnotationLink();
 
-            // Exact clickable area
-            PDRectangle rectangle = new PDRectangle();
+            PDRectangle rectangle =
+                    new PDRectangle();
 
             rectangle.setLowerLeftX(x);
             rectangle.setLowerLeftY(yPosition - 2);
@@ -572,7 +577,6 @@ public class PdfAgent {
 
             link.setRectangle(rectangle);
 
-            // Click karne par yellow highlight nahi
             link.setHighlightMode(
                     PDAnnotationLink.HIGHLIGHT_MODE_NONE
             );
@@ -593,33 +597,35 @@ public class PdfAgent {
             x += textWidth;
         }
 
-
-
         // =========================
         // LINKEDIN
         // =========================
 
         if (!linkedinText.isBlank()) {
 
-            content.showText(separator);
+            if (!emailText.isBlank()
+                    || !githubText.isBlank()) {
 
-            x += font.getStringWidth(separator)
-                    / 1000
-                    * fontSize;
+                content.showText(separator);
 
-            float textWidth =
-                    font.getStringWidth(clean(linkedinText))
-                            / 1000
-                            * fontSize;
+                x += separatorWidth;
+            }
 
-            content.showText(clean(linkedinText));
+            float textWidth = linkedinWidth;
+
+            content.showText(
+                    clean(linkedinText)
+            );
 
             PDAnnotationLink link =
                     new PDAnnotationLink();
 
-            link.setHighlightMode(PDAnnotationLink.HIGHLIGHT_MODE_NONE);
+            link.setHighlightMode(
+                    PDAnnotationLink.HIGHLIGHT_MODE_NONE
+            );
 
-            PDRectangle rectangle = new PDRectangle();
+            PDRectangle rectangle =
+                    new PDRectangle();
 
             rectangle.setLowerLeftX(x);
             rectangle.setLowerLeftY(yPosition - 2);
@@ -650,7 +656,6 @@ public class PdfAgent {
 
         content.endText();
     }
-
 
     // =====================================================
     // writeCentered
