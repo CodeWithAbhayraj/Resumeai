@@ -18,6 +18,7 @@ import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink;
 
 import org.springframework.stereotype.Component;
 
+import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
@@ -651,11 +652,7 @@ public class PdfAgent {
         );
 
         // Blue link
-        content.setNonStrokingColor(
-                0,
-                70,
-                180
-        );
+        content.setNonStrokingColor(new Color(0, 70, 180));
 
         content.newLineAtOffset(
                 x,
