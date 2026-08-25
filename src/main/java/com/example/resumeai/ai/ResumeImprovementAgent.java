@@ -23,19 +23,16 @@ public class ResumeImprovementAgent {
             ATSResponseDTO atsResult
     ) {
 
-        // Resume -> JSON
-        String resumeJson =
-                jsonService.toJson(resume);
+        // Convert Resume to JSON
+        String resumeJson = jsonService.toJson(resume);
 
-        // JD -> JSON
-        String jdJson =
-                jsonService.toJson(jobDescription);
+        // Convert Job Description to JSON
+        String jdJson = jsonService.toJson(jobDescription);
 
-        // ATS -> JSON
-        String atsJson =
-                jsonService.toJson(atsResult);
+        // Convert ATS result to JSON
+        String atsJson = jsonService.toJson(atsResult);
 
-        // Build Prompt
+        // Build AI prompt
         String prompt = String.format(
                 ResumeImprovementPrompt.PROMPT,
                 resumeJson,
@@ -43,11 +40,10 @@ public class ResumeImprovementAgent {
                 atsJson
         );
 
-        // Gemini
-        String aiResponse =
-                geminiService.askGemini(prompt);
+        // Call Gemini
+        String aiResponse = geminiService.askGemini(prompt);
 
-        // JSON -> DTO
+        // Convert AI JSON response to DTO
         return jsonService.fromJson(
                 aiResponse,
                 ImprovedResumeDTO.class
