@@ -25,9 +25,9 @@ import java.util.List;
 @Component
 public class PdfAgent {
 
-    // =====================================================
+    // =========================================================
     // PAGE SETTINGS
-    // =====================================================
+    // =========================================================
 
     private static final float PAGE_WIDTH =
             PDRectangle.A4.getWidth();
@@ -35,24 +35,30 @@ public class PdfAgent {
     private static final float PAGE_HEIGHT =
             PDRectangle.A4.getHeight();
 
-    // Reference resume has slightly wider margins
-    private static final float MARGIN_LEFT = 42;
+    /*
+     * These margins are intentionally compact.
+     * They are tuned for the reference resume layout.
+     */
+    private static final float MARGIN_LEFT = 52f;
 
-    private static final float MARGIN_RIGHT = 42;
+    private static final float MARGIN_RIGHT = 52f;
 
-    private static final float TOP_MARGIN = 30;
+    private static final float TOP_MARGIN = 36f;
 
-    private static final float BOTTOM_MARGIN = 28;
+    private static final float BOTTOM_MARGIN = 30f;
 
     private static final float CONTENT_WIDTH =
             PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
 
+    /*
+     * Current vertical cursor.
+     */
     private float yPosition;
 
 
-    // =====================================================
+    // =========================================================
     // FONTS
-    // =====================================================
+    // =========================================================
 
     private static final PDType1Font FONT_REGULAR =
             new PDType1Font(
@@ -70,15 +76,44 @@ public class PdfAgent {
             );
 
 
-    // =====================================================
-    // MAIN PDF GENERATOR
-    // =====================================================
+    // =========================================================
+    // COLORS
+    // =========================================================
 
-    public byte[] generateResumePdf(
+    private static final Color BLACK =
+            Color.BLACK;
+
+    private static final Color LINK_BLUE =
+            new Color(0, 70, 180);
+
+
+    // =========================================================
+    // MAIN PDF GENERATOR
+    // =========================================================
+
+    /*
+     * synchronized is intentional.
+     *
+     * PdfAgent is a Spring singleton and yPosition is an
+     * instance field. synchronized prevents two simultaneous
+     * requests from modifying the same yPosition.
+     */
+    public synchronized byte[] generateResumePdf(
             ImprovedResumeDTO resume
     ) {
 
+        if (resume == null) {
+
+            throw new IllegalArgumentException(
+                    "Resume data cannot be null."
+            );
+        }
+
         try (PDDocument document = new PDDocument()) {
+
+            // =================================================
+            // CREATE ONE A4 PAGE
+            // =================================================
 
             PDPage page =
                     new PDPage(PDRectangle.A4);
@@ -99,15 +134,17 @@ public class PdfAgent {
                 // NAME
                 // =================================================
 
-                writeCentered(
-                        content,
-                        safe(resume.getFullName()),
-                        18,
-                        FONT_BOLD
-                );
+                if (hasText(resume.getFullName())) {
 
-                // Small gap after name
-                yPosition -= 2;
+                    writeCentered(
+                            content,
+                            resume.getFullName(),
+                            18f,
+                            FONT_BOLD
+                    );
+
+                    yPosition -= 2f;
+                }
 
 
                 // =================================================
@@ -123,14 +160,16 @@ public class PdfAgent {
                         resume.getGithub()
                 );
 
-                yPosition -= 3;
+                yPosition -= 2f;
 
 
                 // =================================================
                 // SUMMARY
                 // =================================================
 
-                if (hasText(resume.getProfessionalSummary())) {
+                if (hasText(
+                        resume.getProfessionalSummary()
+                )) {
 
                     writeSectionTitle(
                             content,
@@ -140,10 +179,10 @@ public class PdfAgent {
                     writeWrappedText(
                             content,
                             resume.getProfessionalSummary(),
-                            9
+                            9f
                     );
 
-                    yPosition -= 2;
+                    yPosition -= 2f;
                 }
 
 
@@ -162,6 +201,10 @@ public class PdfAgent {
                     for (ProjectDTO project :
                             resume.getProjects()) {
 
+                        if (project == null) {
+                            continue;
+                        }
+
                         writeProjectHeader(
                                 content,
                                 project
@@ -172,14 +215,17 @@ public class PdfAgent {
                             for (String highlight :
                                     project.getHighlights()) {
 
-                                writeBullet(
-                                        content,
-                                        highlight
-                                );
+                                if (hasText(highlight)) {
+
+                                    writeBullet(
+                                            content,
+                                            highlight
+                                    );
+                                }
                             }
                         }
 
-                        // Small gap between projects
+                        // Compact gap between projects
                         yPosition -= 1.5f;
                     }
                 }
@@ -200,6 +246,10 @@ public class PdfAgent {
                     for (EducationDTO education :
                             resume.getEducation()) {
 
+                        if (education == null) {
+                            continue;
+                        }
+
                         writeEducation(
                                 content,
                                 education
@@ -214,23 +264,52 @@ public class PdfAgent {
                 // EXPERIENCE
                 // =================================================
 
+                /*
+                 * Reference resume does not contain an Experience
+                 * section. Therefore this section is generated
+                 * ONLY when actual experience data exists.
+                 */
                 if (resume.getExperience() != null
                         && !resume.getExperience().isEmpty()) {
 
-                    writeSectionTitle(
-                            content,
-                            "Experience"
-                    );
+                    boolean hasExperience = false;
 
                     for (ExperienceDTO experience :
                             resume.getExperience()) {
 
-                        writeExperience(
+                        if (experience != null
+                                && (
+                                hasText(experience.getRole())
+                                        || hasText(experience.getCompany())
+                                        || hasText(experience.getDescription())
+                        )) {
+
+                            hasExperience = true;
+                            break;
+                        }
+                    }
+
+                    if (hasExperience) {
+
+                        writeSectionTitle(
                                 content,
-                                experience
+                                "Experience"
                         );
 
-                        yPosition -= 1.5f;
+                        for (ExperienceDTO experience :
+                                resume.getExperience()) {
+
+                            if (experience == null) {
+                                continue;
+                            }
+
+                            writeExperience(
+                                    content,
+                                    experience
+                            );
+
+                            yPosition -= 1.5f;
+                        }
                     }
                 }
 
@@ -242,21 +321,38 @@ public class PdfAgent {
                 if (resume.getCertifications() != null
                         && !resume.getCertifications().isEmpty()) {
 
-                    writeSectionTitle(
-                            content,
-                            "Certifications"
-                    );
+                    boolean hasCertification = false;
 
                     for (String certification :
                             resume.getCertifications()) {
 
-                        writeBullet(
-                                content,
-                                certification
-                        );
+                        if (hasText(certification)) {
+                            hasCertification = true;
+                            break;
+                        }
                     }
 
-                    yPosition -= 1;
+                    if (hasCertification) {
+
+                        writeSectionTitle(
+                                content,
+                                "Certifications"
+                        );
+
+                        for (String certification :
+                                resume.getCertifications()) {
+
+                            if (hasText(certification)) {
+
+                                writeBullet(
+                                        content,
+                                        certification
+                                );
+                            }
+                        }
+
+                        yPosition -= 1f;
+                    }
                 }
 
 
@@ -269,47 +365,57 @@ public class PdfAgent {
 
                 if (skills != null) {
 
-                    writeSectionTitle(
-                            content,
-                            "Technical Skills"
-                    );
+                    boolean hasSkills =
+                            hasList(skills.getLanguages())
+                                    || hasList(skills.getFrameworks())
+                                    || hasList(skills.getDatabases())
+                                    || hasList(skills.getDevopsAndTools())
+                                    || hasList(skills.getConcepts());
 
-                    writeSkillLine(
-                            content,
-                            "Languages:",
-                            skills.getLanguages()
-                    );
+                    if (hasSkills) {
 
-                    writeSkillLine(
-                            content,
-                            "Frameworks:",
-                            skills.getFrameworks()
-                    );
+                        writeSectionTitle(
+                                content,
+                                "Technical Skills"
+                        );
 
-                    writeSkillLine(
-                            content,
-                            "Databases:",
-                            skills.getDatabases()
-                    );
+                        writeSkillLine(
+                                content,
+                                "Languages:",
+                                skills.getLanguages()
+                        );
 
-                    writeSkillLine(
-                            content,
-                            "DevOps & Tools:",
-                            skills.getDevopsAndTools()
-                    );
+                        writeSkillLine(
+                                content,
+                                "Frameworks:",
+                                skills.getFrameworks()
+                        );
 
-                    writeSkillLine(
-                            content,
-                            "Concepts:",
-                            skills.getConcepts()
-                    );
+                        writeSkillLine(
+                                content,
+                                "Databases:",
+                                skills.getDatabases()
+                        );
+
+                        writeSkillLine(
+                                content,
+                                "DevOps & Tools:",
+                                skills.getDevopsAndTools()
+                        );
+
+                        writeSkillLine(
+                                content,
+                                "Concepts:",
+                                skills.getConcepts()
+                        );
+                    }
                 }
             }
 
 
-            // =====================================================
-            // SAVE PDF
-            // =====================================================
+            // =================================================
+            // SAVE
+            // =================================================
 
             ByteArrayOutputStream outputStream =
                     new ByteArrayOutputStream();
@@ -328,9 +434,9 @@ public class PdfAgent {
     }
 
 
-    // =====================================================
+    // =========================================================
     // SECTION TITLE
-    // =====================================================
+    // =========================================================
 
     private void writeSectionTitle(
             PDPageContentStream content,
@@ -341,15 +447,17 @@ public class PdfAgent {
             return;
         }
 
-        ensureSpace();
+        ensureSpace(15f);
 
-        // Small top spacing
-        yPosition -= 1;
+        /*
+         * Small spacing before section.
+         */
+        yPosition -= 1f;
 
 
-        // =================================================
+        // =====================================================
         // TITLE
-        // =================================================
+        // =====================================================
 
         content.beginText();
 
@@ -359,9 +467,7 @@ public class PdfAgent {
         );
 
         content.setNonStrokingColor(
-                0,
-                0,
-                0
+                BLACK
         );
 
         content.newLineAtOffset(
@@ -376,9 +482,9 @@ public class PdfAgent {
         content.endText();
 
 
-        // =================================================
+        // =====================================================
         // HORIZONTAL LINE
-        // =================================================
+        // =====================================================
 
         float titleWidth =
                 getTextWidth(
@@ -390,10 +496,16 @@ public class PdfAgent {
         float lineY =
                 yPosition - 2.5f;
 
-        content.setLineWidth(0.5f);
+        content.setLineWidth(
+                0.5f
+        );
+
+        content.setStrokingColor(
+                BLACK
+        );
 
         content.moveTo(
-                MARGIN_LEFT + titleWidth + 6,
+                MARGIN_LEFT + titleWidth + 6f,
                 lineY
         );
 
@@ -405,14 +517,16 @@ public class PdfAgent {
         content.stroke();
 
 
-        // Compact spacing after heading
-        yPosition -= 12;
+        /*
+         * Space after heading.
+         */
+        yPosition -= 12f;
     }
 
 
-    // =====================================================
+    // =========================================================
     // CENTERED NAME
-    // =====================================================
+    // =========================================================
 
     private void writeCentered(
             PDPageContentStream content,
@@ -436,7 +550,7 @@ public class PdfAgent {
                 );
 
         float x =
-                (PAGE_WIDTH - textWidth) / 2;
+                (PAGE_WIDTH - textWidth) / 2f;
 
 
         content.beginText();
@@ -447,9 +561,7 @@ public class PdfAgent {
         );
 
         content.setNonStrokingColor(
-                0,
-                0,
-                0
+                BLACK
         );
 
         content.newLineAtOffset(
@@ -465,13 +577,13 @@ public class PdfAgent {
 
 
         yPosition -=
-                fontSize + 1;
+                fontSize + 1f;
     }
 
 
-    // =====================================================
+    // =========================================================
     // CONTACT INFORMATION
-    // =====================================================
+    // =========================================================
 
     private void writeContactInfo(
             PDDocument document,
@@ -482,20 +594,24 @@ public class PdfAgent {
             String github
     ) throws IOException {
 
-        float fontSize = 8.5f;
+        final float fontSize = 8.5f;
 
         String emailText =
-                safe(email);
+                clean(safe(email));
 
         String linkedinText =
-                safe(linkedin);
+                clean(safe(linkedin));
 
         String githubText =
-                safe(github);
+                clean(safe(github));
 
         String separator =
                 "  —  ";
 
+
+        // =====================================================
+        // WIDTHS
+        // =====================================================
 
         float emailWidth =
                 getTextWidth(
@@ -526,6 +642,10 @@ public class PdfAgent {
                 );
 
 
+        // =====================================================
+        // COUNT
+        // =====================================================
+
         int count = 0;
 
         if (hasText(emailText)) {
@@ -540,24 +660,37 @@ public class PdfAgent {
             count++;
         }
 
+        if (count == 0) {
+            return;
+        }
+
+
+        // =====================================================
+        // TOTAL WIDTH
+        // =====================================================
 
         float totalWidth =
                 emailWidth
                         + linkedinWidth
                         + githubWidth
-                        + Math.max(0, count - 1)
-                        * separatorWidth;
+                        + Math.max(
+                        0,
+                        count - 1
+                ) * separatorWidth;
 
 
         float x =
-                (PAGE_WIDTH - totalWidth) / 2;
+                (PAGE_WIDTH - totalWidth) / 2f;
 
 
-        // =================================================
+        // =====================================================
         // EMAIL
-        // =================================================
+        // =====================================================
 
         if (hasText(emailText)) {
+
+            String emailUrl =
+                    "mailto:" + emailText;
 
             drawContactLink(
                     document,
@@ -568,16 +701,16 @@ public class PdfAgent {
                     yPosition,
                     emailWidth,
                     fontSize,
-                    null
+                    emailUrl
             );
 
             x += emailWidth;
         }
 
 
-        // =================================================
+        // =====================================================
         // LINKEDIN
-        // =================================================
+        // =====================================================
 
         if (hasText(linkedinText)) {
 
@@ -604,16 +737,16 @@ public class PdfAgent {
                     yPosition,
                     linkedinWidth,
                     fontSize,
-                    linkedinText
+                    normalizeUrl(linkedinText)
             );
 
             x += linkedinWidth;
         }
 
 
-        // =================================================
+        // =====================================================
         // GITHUB
-        // =================================================
+        // =====================================================
 
         if (hasText(githubText)) {
 
@@ -641,18 +774,18 @@ public class PdfAgent {
                     yPosition,
                     githubWidth,
                     fontSize,
-                    githubText
+                    normalizeUrl(githubText)
             );
         }
 
 
-        yPosition -= 10;
+        yPosition -= 10f;
     }
 
 
-    // =====================================================
+    // =========================================================
     // CONTACT LINK
-    // =====================================================
+    // =========================================================
 
     private void drawContactLink(
             PDDocument document,
@@ -666,6 +799,15 @@ public class PdfAgent {
             String url
     ) throws IOException {
 
+        if (!hasText(text)) {
+            return;
+        }
+
+
+        // =====================================================
+        // TEXT
+        // =====================================================
+
         content.beginText();
 
         content.setFont(
@@ -674,7 +816,7 @@ public class PdfAgent {
         );
 
         content.setNonStrokingColor(
-                new Color(0, 70, 180)
+                LINK_BLUE
         );
 
         content.newLineAtOffset(
@@ -689,17 +831,18 @@ public class PdfAgent {
         content.endText();
 
 
-        // Reset black
+        // =====================================================
+        // RESET COLOR
+        // =====================================================
+
         content.setNonStrokingColor(
-                0,
-                0,
-                0
+                BLACK
         );
 
 
-        // =================================================
+        // =====================================================
         // CLICKABLE LINK
-        // =================================================
+        // =====================================================
 
         if (hasText(url)) {
 
@@ -709,10 +852,12 @@ public class PdfAgent {
             PDRectangle rectangle =
                     new PDRectangle();
 
-            rectangle.setLowerLeftX(x);
+            rectangle.setLowerLeftX(
+                    x
+            );
 
             rectangle.setLowerLeftY(
-                    y - 2
+                    y - 2f
             );
 
             rectangle.setUpperRightX(
@@ -720,7 +865,7 @@ public class PdfAgent {
             );
 
             rectangle.setUpperRightY(
-                    y + fontSize + 2
+                    y + fontSize + 2f
             );
 
             link.setRectangle(
@@ -736,12 +881,12 @@ public class PdfAgent {
                     new PDActionURI();
 
             action.setURI(
-                    url.startsWith("http")
-                            ? url
-                            : "https://" + url
+                    url
             );
 
-            link.setAction(action);
+            link.setAction(
+                    action
+            );
 
             page.getAnnotations()
                     .add(link);
@@ -749,19 +894,21 @@ public class PdfAgent {
     }
 
 
-    // =====================================================
+    // =========================================================
     // PROJECT HEADER
-    // =====================================================
+    // =========================================================
 
     private void writeProjectHeader(
             PDPageContentStream content,
             ProjectDTO project
     ) throws IOException {
 
-        ensureSpace();
+        ensureSpace(13f);
 
         String title =
-                safe(project.getTitle());
+                clean(
+                        safe(project.getTitle())
+                );
 
         String technologies = "";
 
@@ -769,16 +916,18 @@ public class PdfAgent {
                 && !project.getTechnologies().isEmpty()) {
 
             technologies =
-                    String.join(
-                            " | ",
-                            project.getTechnologies()
+                    clean(
+                            String.join(
+                                    " | ",
+                                    project.getTechnologies()
+                            )
                     );
         }
 
 
-        float titleFontSize = 10;
+        final float titleFontSize = 10f;
 
-        float techFontSize = 9;
+        final float techFontSize = 8.5f;
 
 
         float titleWidth =
@@ -796,17 +945,20 @@ public class PdfAgent {
                 );
 
 
-        // =================================================
-        // SAME LINE
-        // =================================================
+        // =====================================================
+        // TITLE + TECHNOLOGIES SAME LINE
+        // =====================================================
 
         if (hasText(technologies)
                 && titleWidth
                 + techWidth
-                + 20
+                + 20f
                 <= CONTENT_WIDTH) {
 
-            // PROJECT TITLE
+            // -------------------------------------------------
+            // TITLE
+            // -------------------------------------------------
+
             drawNormalText(
                     content,
                     title,
@@ -817,7 +969,10 @@ public class PdfAgent {
             );
 
 
-            // TECHNOLOGIES RIGHT
+            // -------------------------------------------------
+            // TECHNOLOGIES
+            // -------------------------------------------------
+
             float techX =
                     PAGE_WIDTH
                             - MARGIN_RIGHT
@@ -832,11 +987,17 @@ public class PdfAgent {
                     techFontSize
             );
 
-            yPosition -= 12;
 
-        } else {
+            yPosition -= 11.5f;
+        }
 
-            // TITLE
+
+        // =====================================================
+        // IF TOO LONG
+        // =====================================================
+
+        else {
+
             drawNormalText(
                     content,
                     title,
@@ -846,10 +1007,8 @@ public class PdfAgent {
                     titleFontSize
             );
 
-            yPosition -= 11;
+            yPosition -= 11f;
 
-
-            // TECHNOLOGIES
             if (hasText(technologies)) {
 
                 writeWrappedTextWithFont(
@@ -864,53 +1023,55 @@ public class PdfAgent {
     }
 
 
-    // =====================================================
+    // =========================================================
     // EDUCATION
-    // =====================================================
+    // =========================================================
 
     private void writeEducation(
             PDPageContentStream content,
             EducationDTO education
     ) throws IOException {
 
-        ensureSpace();
+        ensureSpace(24f);
 
-        float institutionFontSize = 9.5f;
+        final float institutionFontSize = 9.5f;
+
+        final float detailFontSize = 8.5f;
+
 
         String institution =
-                safe(education.getInstitution());
-
-
-        String startDate =
-                safe(education.getStartDate());
-
-        String endDate =
-                safe(education.getEndDate());
-
-
-        String dates = "";
-
-        if (hasText(startDate)
-                || hasText(endDate)) {
-
-            dates =
-                    startDate
-                            + " - "
-                            + endDate;
-        }
-
-
-        float dateWidth =
-                getTextWidth(
-                        dates,
-                        FONT_ITALIC,
-                        8.5f
+                clean(
+                        safe(
+                                education.getInstitution()
+                        )
                 );
 
 
-        // =================================================
+        String startDate =
+                clean(
+                        safe(
+                                education.getStartDate()
+                        )
+                );
+
+        String endDate =
+                clean(
+                        safe(
+                                education.getEndDate()
+                        )
+                );
+
+
+        String dates =
+                buildDateRange(
+                        startDate,
+                        endDate
+                );
+
+
+        // =====================================================
         // INSTITUTION
-        // =================================================
+        // =====================================================
 
         drawNormalText(
                 content,
@@ -922,11 +1083,18 @@ public class PdfAgent {
         );
 
 
-        // =================================================
+        // =====================================================
         // DATE
-        // =================================================
+        // =====================================================
 
         if (hasText(dates)) {
+
+            float dateWidth =
+                    getTextWidth(
+                            dates,
+                            FONT_ITALIC,
+                            8.5f
+                    );
 
             float dateX =
                     PAGE_WIDTH
@@ -944,37 +1112,82 @@ public class PdfAgent {
         }
 
 
-        yPosition -= 11;
+        yPosition -= 11f;
 
 
-        // =================================================
-        // DEGREE
-        // =================================================
+        // =====================================================
+        // DEGREE + MAJOR
+        // =====================================================
 
-        writeWrappedText(
-                content,
-                safe(education.getDegree()),
-                8.5f
-        );
+        String degree =
+                clean(
+                        safe(
+                                education.getDegree()
+                        )
+                );
+
+        String major =
+                clean(
+                        safe(
+                                education.getMajor()
+                        )
+                );
+
+
+        String educationDetail =
+                degree;
+
+
+        if (hasText(major)) {
+
+            if (hasText(educationDetail)) {
+
+                educationDetail +=
+                        " - " + major;
+
+            } else {
+
+                educationDetail =
+                        major;
+            }
+        }
+
+
+        if (hasText(educationDetail)) {
+
+            writeWrappedText(
+                    content,
+                    educationDetail,
+                    detailFontSize
+            );
+        }
     }
 
 
-    // =====================================================
+    // =========================================================
     // EXPERIENCE
-    // =====================================================
+    // =========================================================
 
     private void writeExperience(
             PDPageContentStream content,
             ExperienceDTO experience
     ) throws IOException {
 
-        ensureSpace();
+        ensureSpace(25f);
 
         String role =
-                safe(experience.getRole());
+                clean(
+                        safe(
+                                experience.getRole()
+                        )
+                );
 
         String company =
-                safe(experience.getCompany());
+                clean(
+                        safe(
+                                experience.getCompany()
+                        )
+                );
 
 
         String heading =
@@ -983,24 +1196,45 @@ public class PdfAgent {
 
         if (hasText(company)) {
 
-            heading +=
-                    " - " + company;
+            if (hasText(heading)) {
+
+                heading +=
+                        " - " + company;
+
+            } else {
+
+                heading =
+                        company;
+            }
         }
 
 
-        drawNormalText(
-                content,
-                heading,
-                MARGIN_LEFT,
-                yPosition,
-                FONT_BOLD,
-                9.5f
-        );
+        // =====================================================
+        // ROLE / COMPANY
+        // =====================================================
 
-        yPosition -= 11;
+        if (hasText(heading)) {
+
+            drawNormalText(
+                    content,
+                    heading,
+                    MARGIN_LEFT,
+                    yPosition,
+                    FONT_BOLD,
+                    9.5f
+            );
+
+            yPosition -= 11f;
+        }
 
 
-        if (hasText(experience.getDuration())) {
+        // =====================================================
+        // DURATION
+        // =====================================================
+
+        if (hasText(
+                experience.getDuration()
+        )) {
 
             writeWrappedText(
                     content,
@@ -1010,7 +1244,13 @@ public class PdfAgent {
         }
 
 
-        if (hasText(experience.getDescription())) {
+        // =====================================================
+        // DESCRIPTION
+        // =====================================================
+
+        if (hasText(
+                experience.getDescription()
+        )) {
 
             writeBullet(
                     content,
@@ -1020,9 +1260,9 @@ public class PdfAgent {
     }
 
 
-    // =====================================================
+    // =========================================================
     // TECHNICAL SKILLS
-    // =====================================================
+    // =========================================================
 
     private void writeSkillLine(
             PDPageContentStream content,
@@ -1030,26 +1270,26 @@ public class PdfAgent {
             List<String> skills
     ) throws IOException {
 
-        if (skills == null
-                || skills.isEmpty()) {
-
+        if (!hasList(skills)) {
             return;
         }
 
 
         String skillText =
-                String.join(
-                        ", ",
-                        skills
+                clean(
+                        String.join(
+                                ", ",
+                                skills
+                        )
                 );
 
 
-        float fontSize = 8.5f;
+        final float fontSize = 8.5f;
 
 
-        // =================================================
+        // =====================================================
         // CATEGORY
-        // =================================================
+        // =====================================================
 
         drawNormalText(
                 content,
@@ -1061,9 +1301,9 @@ public class PdfAgent {
         );
 
 
-        // =================================================
+        // =====================================================
         // FIXED LABEL COLUMN
-        // =================================================
+        // =====================================================
 
         float categoryWidth =
                 getTextWidth(
@@ -1076,12 +1316,12 @@ public class PdfAgent {
         float skillX =
                 MARGIN_LEFT
                         + categoryWidth
-                        + 10;
+                        + 10f;
 
 
-        // =================================================
+        // =====================================================
         // SKILLS
-        // =================================================
+        // =====================================================
 
         writeWrappedTextAtX(
                 content,
@@ -1092,9 +1332,9 @@ public class PdfAgent {
     }
 
 
-    // =====================================================
+    // =========================================================
     // BULLET
-    // =====================================================
+    // =========================================================
 
     private void writeBullet(
             PDPageContentStream content,
@@ -1105,41 +1345,42 @@ public class PdfAgent {
             return;
         }
 
-        ensureSpace();
-
-        float fontSize = 8.7f;
+        final float fontSize = 8.7f;
 
 
-        // =================================================
+        ensureSpace(12f);
+
+
+        // =====================================================
         // BULLET SYMBOL
-        // =================================================
+        // =====================================================
 
         drawNormalText(
                 content,
                 "•",
-                MARGIN_LEFT + 6,
+                MARGIN_LEFT + 5f,
                 yPosition,
                 FONT_REGULAR,
                 fontSize
         );
 
 
-        // =================================================
+        // =====================================================
         // BULLET TEXT
-        // =================================================
+        // =====================================================
 
         writeWrappedTextAtX(
                 content,
                 text,
-                MARGIN_LEFT + 17,
+                MARGIN_LEFT + 16f,
                 fontSize
         );
     }
 
 
-    // =====================================================
+    // =========================================================
     // WRAPPED TEXT
-    // =====================================================
+    // =========================================================
 
     private void writeWrappedText(
             PDPageContentStream content,
@@ -1156,9 +1397,9 @@ public class PdfAgent {
     }
 
 
-    // =====================================================
+    // =========================================================
     // WRAPPED TEXT AT X
-    // =====================================================
+    // =========================================================
 
     private void writeWrappedTextAtX(
             PDPageContentStream content,
@@ -1177,9 +1418,9 @@ public class PdfAgent {
     }
 
 
-    // =====================================================
+    // =========================================================
     // WRAPPED TEXT WITH FONT
-    // =====================================================
+    // =========================================================
 
     private void writeWrappedTextWithFont(
             PDPageContentStream content,
@@ -1195,10 +1436,21 @@ public class PdfAgent {
 
 
         String cleanText =
-                clean(text);
+                clean(text)
+                        .replace("\n", " ")
+                        .replace("\r", " ")
+                        .replaceAll("\\s+", " ")
+                        .trim();
+
+
+        if (cleanText.isEmpty()) {
+            return;
+        }
+
 
         String[] words =
                 cleanText.split("\\s+");
+
 
         StringBuilder line =
                 new StringBuilder();
@@ -1216,12 +1468,15 @@ public class PdfAgent {
 
             if (line.isEmpty()) {
 
-                testLine = word;
+                testLine =
+                        word;
 
             } else {
 
                 testLine =
-                        line + " " + word;
+                        line
+                                + " "
+                                + word;
             }
 
 
@@ -1233,8 +1488,11 @@ public class PdfAgent {
                     );
 
 
-            if (testWidth
-                    > availableWidth
+            // =================================================
+            // LINE TOO LONG
+            // =================================================
+
+            if (testWidth > availableWidth
                     && !line.isEmpty()) {
 
                 writeLineAtX(
@@ -1246,7 +1504,9 @@ public class PdfAgent {
                 );
 
                 line =
-                        new StringBuilder(word);
+                        new StringBuilder(
+                                word
+                        );
 
             } else {
 
@@ -1257,6 +1517,10 @@ public class PdfAgent {
             }
         }
 
+
+        // =====================================================
+        // LAST LINE
+        // =====================================================
 
         if (!line.isEmpty()) {
 
@@ -1271,9 +1535,9 @@ public class PdfAgent {
     }
 
 
-    // =====================================================
+    // =========================================================
     // WRITE LINE
-    // =====================================================
+    // =========================================================
 
     private void writeLineAtX(
             PDPageContentStream content,
@@ -1283,7 +1547,10 @@ public class PdfAgent {
             PDType1Font font
     ) throws IOException {
 
-        ensureSpace();
+        ensureSpace(
+                fontSize + 2f
+        );
+
 
         drawNormalText(
                 content,
@@ -1295,15 +1562,20 @@ public class PdfAgent {
         );
 
 
-        // Tight line spacing like reference resume
+        /*
+         * Compact line spacing.
+         *
+         * This is one of the main changes responsible
+         * for keeping the resume on one A4 page.
+         */
         yPosition -=
-                fontSize + 1.8f;
+                fontSize + 1.6f;
     }
 
 
-    // =====================================================
+    // =========================================================
     // DRAW NORMAL TEXT
-    // =====================================================
+    // =========================================================
 
     private void drawNormalText(
             PDPageContentStream content,
@@ -1327,9 +1599,7 @@ public class PdfAgent {
         );
 
         content.setNonStrokingColor(
-                0,
-                0,
-                0
+                BLACK
         );
 
         content.newLineAtOffset(
@@ -1345,9 +1615,9 @@ public class PdfAgent {
     }
 
 
-    // =====================================================
+    // =========================================================
     // TEXT WIDTH
-    // =====================================================
+    // =========================================================
 
     private float getTextWidth(
             String text,
@@ -1356,7 +1626,7 @@ public class PdfAgent {
     ) {
 
         if (!hasText(text)) {
-            return 0;
+            return 0f;
         }
 
 
@@ -1368,29 +1638,129 @@ public class PdfAgent {
 
         } catch (IOException e) {
 
-            return 0;
+            return 0f;
         }
     }
 
 
-    // =====================================================
+    // =========================================================
     // PAGE SPACE
-    // =====================================================
+    // =========================================================
 
-    private void ensureSpace() {
+    private void ensureSpace(
+            float requiredHeight
+    ) {
 
-        if (yPosition < BOTTOM_MARGIN) {
+        if (yPosition - requiredHeight
+                < BOTTOM_MARGIN) {
 
             throw new RuntimeException(
-                    "Resume content exceeds one A4 page."
+                    "Resume content exceeds one A4 page. " +
+                            "Please reduce resume content."
             );
         }
     }
 
 
-    // =====================================================
+    // =========================================================
+    // DATE RANGE
+    // =========================================================
+
+    private String buildDateRange(
+            String startDate,
+            String endDate
+    ) {
+
+        boolean hasStart =
+                hasText(startDate);
+
+        boolean hasEnd =
+                hasText(endDate);
+
+
+        if (hasStart && hasEnd) {
+
+            return startDate
+                    + " - "
+                    + endDate;
+        }
+
+
+        if (hasStart) {
+
+            return startDate;
+        }
+
+
+        if (hasEnd) {
+
+            return endDate;
+        }
+
+
+        return "";
+    }
+
+
+    // =========================================================
+    // URL NORMALIZATION
+    // =========================================================
+
+    private String normalizeUrl(
+            String value
+    ) {
+
+        if (!hasText(value)) {
+            return "";
+        }
+
+
+        String url =
+                value.trim();
+
+
+        if (url.startsWith("http://")
+                || url.startsWith("https://")
+                || url.startsWith("mailto:")) {
+
+            return url;
+        }
+
+
+        return "https://" + url;
+    }
+
+
+    // =========================================================
+    // HAS LIST
+    // =========================================================
+
+    private boolean hasList(
+            List<String> list
+    ) {
+
+        if (list == null
+                || list.isEmpty()) {
+
+            return false;
+        }
+
+
+        for (String item : list) {
+
+            if (hasText(item)) {
+                return true;
+            }
+        }
+
+
+        return false;
+    }
+
+
+    // =========================================================
     // SAFE
-    // =====================================================
+    // =========================================================
 
     private String safe(
             String value
@@ -1402,9 +1772,9 @@ public class PdfAgent {
     }
 
 
-    // =====================================================
+    // =========================================================
     // HAS TEXT
-    // =====================================================
+    // =========================================================
 
     private boolean hasText(
             String value
@@ -1415,9 +1785,9 @@ public class PdfAgent {
     }
 
 
-    // =====================================================
+    // =========================================================
     // CLEAN TEXT
-    // =====================================================
+    // =========================================================
 
     private String clean(
             String value
@@ -1433,6 +1803,8 @@ public class PdfAgent {
                 .replace("—", "-")
                 .replace("’", "'")
                 .replace("“", "\"")
-                .replace("”", "\"");
+                .replace("”", "\"")
+                .replace("•", "•")
+                .trim();
     }
 }
