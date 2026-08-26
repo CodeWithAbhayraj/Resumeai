@@ -1806,5 +1806,6 @@ public class PdfAgent {
                 .replace("”", "\"")
                 .replace("•", "•")
                 .trim();
+
     }
 }
