@@ -19,7 +19,6 @@ public class ImprovedResumeDTO {
     // Professional Summary
     private String professionalSummary;
 
-
     // Skills
     private SkillsDTO skills;
 
