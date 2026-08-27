@@ -104,21 +104,20 @@ public class PdfAgent {
     private static final float EDUCATION_TEXT_SIZE = 8.2f;
 
     // =========================================================
-    // SPACING
+    // SPACING (adjusted for better readability)
     // =========================================================
 
-    private static final float HEADER_BOTTOM = 11f;
+    private static final float HEADER_BOTTOM = 14f;          // increased
 
-    // Compact but readable spacing.  Keep section headings clearly
-    // separated from the preceding content and the first item below them.
-    private static final float SECTION_TOP = 8f;
-    private static final float SECTION_BOTTOM = 7f;
+    // Compact but readable spacing
+    private static final float SECTION_TOP = 10f;            // increased
+    private static final float SECTION_BOTTOM = 8f;          // increased
 
-    // Consistent gap between resume entries.
-    private static final float BLOCK_GAP = 4f;
+    private static final float BLOCK_GAP = 6f;               // increased
 
-    // Slightly tighter leading prevents unnecessary vertical expansion.
-    private static final float BODY_LEADING = 10f;
+    private static final float BODY_LEADING = 11f;           // increased
+
+    private static final float BULLET_GAP = 2.5f;            // new: gap after each bullet
 
     // =========================================================
     // PAGE CONTEXT
@@ -171,11 +170,9 @@ public class PdfAgent {
                 // COLUMNS
                 // -------------------------------------------------
 
-                // Start both columns BELOW the header divider.
-                // Previously this used headerY - HEADER_BOTTOM,
-                // which placed section titles on top of the header/contact area.
+                // Start both columns BELOW the header divider, with extra breathing room
                 float contentTop =
-                        headerLineY - 9f;
+                        headerLineY - 12f;   // increased from 9f
 
                 ColumnContext left =
                         new ColumnContext(contentTop);
@@ -1105,7 +1102,7 @@ public class PdfAgent {
                 9.5f
         );
 
-        ctx.y -= 2f;
+        ctx.y -= BULLET_GAP;   // added gap after each bullet
     }
 
     // =========================================================
@@ -1134,7 +1131,7 @@ public class PdfAgent {
                 DARK
         );
 
-        return writeWrapped(
+        float newY = writeWrapped(
                 cs,
                 ctx,
                 text,
@@ -1144,6 +1141,10 @@ public class PdfAgent {
                 REGULAR,
                 BODY_LEADING
         );
+
+        ctx.y = newY - BULLET_GAP;   // added gap after each bullet
+
+        return ctx.y;
     }
 
     // =========================================================
