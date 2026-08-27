@@ -14,6 +14,7 @@ import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.interactive.action.PDActionURI;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink;
+import org.apache.pdfbox.pdmodel.interactive.annotation.PDBorderStyleDictionary;   // NEW import
 
 import org.springframework.stereotype.Component;
 
@@ -38,7 +39,6 @@ public class PdfAgent {
     private static final float TOP_MARGIN = 36f;
     private static final float BOTTOM_MARGIN = 30f;
 
-    // Full usable width for single-column layout
     private static final float CONTENT_WIDTH =
             PAGE_WIDTH - LEFT_MARGIN - RIGHT_MARGIN;
 
@@ -62,7 +62,6 @@ public class PdfAgent {
     private static final Color BLACK = Color.BLACK;
     private static final Color DARK = new Color(45, 45, 45);
     private static final Color GRAY = new Color(95, 95, 95);
-    private static final Color LIGHT_GRAY = new Color(180, 180, 180);
     private static final Color ACCENT = new Color(30, 70, 120);
 
     // =========================================================
@@ -85,7 +84,7 @@ public class PdfAgent {
 
     private static final float HEADER_BOTTOM = 12f;
     private static final float SECTION_TOP = 9f;
-    private static final float SECTION_BOTTOM = 6f;
+    private static final float SECTION_BOTTOM = 12f;
     private static final float BLOCK_GAP = 5f;
     private static final float BODY_LEADING = 11f;
     private static final float BULLET_GAP = 2f;
@@ -116,11 +115,9 @@ public class PdfAgent {
                 float startY = PAGE_HEIGHT - TOP_MARGIN;
                 Context ctx = new Context(startY);
 
-                // ---- Header ----
                 float headerEndY = writeHeader(document, page, cs, resume, ctx);
                 ctx.y = headerEndY - HEADER_BOTTOM;
 
-                // ---- Summary ----
                 if (hasText(resume.getProfessionalSummary())) {
                     writeSectionTitle(cs, ctx, "PROFESSIONAL SUMMARY");
                     ctx.y = writeWrapped(cs, ctx, resume.getProfessionalSummary(),
@@ -128,7 +125,6 @@ public class PdfAgent {
                     ctx.y -= BLOCK_GAP;
                 }
 
-                // ---- Skills ----
                 SkillsDTO skills = resume.getSkills();
                 if (skills != null) {
                     writeSectionTitle(cs, ctx, "TECHNICAL SKILLS");
@@ -136,7 +132,6 @@ public class PdfAgent {
                     ctx.y -= BLOCK_GAP;
                 }
 
-                // ---- Experience ----
                 if (resume.getExperience() != null && !resume.getExperience().isEmpty()) {
                     writeSectionTitle(cs, ctx, "EXPERIENCE");
                     for (ExperienceDTO exp : resume.getExperience()) {
@@ -144,7 +139,6 @@ public class PdfAgent {
                     }
                 }
 
-                // ---- Projects ----
                 if (resume.getProjects() != null && !resume.getProjects().isEmpty()) {
                     writeSectionTitle(cs, ctx, "PROJECTS");
                     for (ProjectDTO project : resume.getProjects()) {
@@ -152,7 +146,6 @@ public class PdfAgent {
                     }
                 }
 
-                // ---- Education ----
                 if (resume.getEducation() != null && !resume.getEducation().isEmpty()) {
                     writeSectionTitle(cs, ctx, "EDUCATION");
                     for (EducationDTO edu : resume.getEducation()) {
@@ -160,7 +153,6 @@ public class PdfAgent {
                     }
                 }
 
-                // ---- Certifications ----
                 if (resume.getCertifications() != null && !resume.getCertifications().isEmpty()) {
                     writeSectionTitle(cs, ctx, "CERTIFICATIONS");
                     for (String cert : resume.getCertifications()) {
@@ -188,7 +180,6 @@ public class PdfAgent {
                               ImprovedResumeDTO resume, Context ctx) throws IOException {
         float y = ctx.y;
 
-        // Name
         String name = clean(safe(resume.getFullName()));
         if (hasText(name)) {
             float nameWidth = getTextWidth(name, BOLD, NAME_SIZE);
@@ -197,7 +188,6 @@ public class PdfAgent {
             y -= 20f;
         }
 
-        // Contact info: email, LinkedIn, GitHub
         String email = clean(safe(resume.getEmail()));
         String linkedin = clean(safe(resume.getLinkedin()));
         String github = clean(safe(resume.getGithub()));
@@ -221,7 +211,6 @@ public class PdfAgent {
             y -= 14f;
         }
 
-        // Horizontal line below header
         cs.setStrokingColor(ACCENT);
         cs.setLineWidth(1.2f);
         cs.moveTo(LEFT_MARGIN, y);
@@ -263,15 +252,6 @@ public class PdfAgent {
             throws IOException {
         ctx.y -= SECTION_TOP;
         drawText(cs, title, LEFT_MARGIN, ctx.y, BOLD, SECTION_TITLE_SIZE, ACCENT);
-
-        float titleWidth = getTextWidth(title, BOLD, SECTION_TITLE_SIZE);
-        float lineY = ctx.y - 3f;
-        cs.setStrokingColor(LIGHT_GRAY);
-        cs.setLineWidth(0.6f);
-        cs.moveTo(LEFT_MARGIN + titleWidth + 8f, lineY);
-        cs.lineTo(PAGE_WIDTH - RIGHT_MARGIN, lineY);
-        cs.stroke();
-
         ctx.y -= SECTION_BOTTOM;
     }
 
@@ -299,7 +279,7 @@ public class PdfAgent {
         String line = label + ": " + text;
         ctx.y = writeWrapped(cs, ctx, line, LEFT_MARGIN, CONTENT_WIDTH,
                 SKILL_SIZE, REGULAR, 10f);
-        ctx.y -= 3f;  // small gap between skill lines
+        ctx.y -= 3f;
     }
 
     // =========================================================
@@ -459,13 +439,14 @@ public class PdfAgent {
     }
 
     // =========================================================
-    // LINK
+    // LINK – Border width set to 0 to remove visible rectangle
     // =========================================================
 
     private void addLink(PDDocument document, PDPage page, String text,
                          float x, float y, float width, float fontSize, String url)
             throws IOException {
         if (!hasText(url)) return;
+
         PDAnnotationLink link = new PDAnnotationLink();
         PDRectangle rect = new PDRectangle();
         rect.setLowerLeftX(x);
@@ -474,6 +455,12 @@ public class PdfAgent {
         rect.setUpperRightY(y + fontSize + 2f);
         link.setRectangle(rect);
         link.setHighlightMode(PDAnnotationLink.HIGHLIGHT_MODE_NONE);
+
+        // Set border width to 0 to remove any visible rectangle/underline
+        PDBorderStyleDictionary borderStyle = new PDBorderStyleDictionary();
+        borderStyle.setWidth(0);
+        link.setBorderStyle(borderStyle);
+
         PDActionURI action = new PDActionURI();
         action.setURI(url);
         link.setAction(action);
