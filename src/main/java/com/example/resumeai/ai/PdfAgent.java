@@ -30,24 +30,17 @@ public class PdfAgent {
     // =========================================================
 
     private static final PDRectangle PAGE_SIZE = PDRectangle.A4;
-
     private static final float PAGE_WIDTH = PAGE_SIZE.getWidth();
     private static final float PAGE_HEIGHT = PAGE_SIZE.getHeight();
 
-    private static final float LEFT = 38f;
-    private static final float RIGHT = 38f;
-    private static final float TOP = 35f;
-    private static final float BOTTOM = 30f;
+    private static final float LEFT_MARGIN = 42f;
+    private static final float RIGHT_MARGIN = 42f;
+    private static final float TOP_MARGIN = 36f;
+    private static final float BOTTOM_MARGIN = 30f;
 
-    // Two-column layout – widened left column for long institution names
-    private static final float LEFT_COLUMN_WIDTH = 175f;   // was 155
-    private static final float COLUMN_GAP = 20f;           // was 25
-
-    private static final float RIGHT_COLUMN_X =
-            LEFT + LEFT_COLUMN_WIDTH + COLUMN_GAP;
-
-    private static final float RIGHT_COLUMN_WIDTH =
-            PAGE_WIDTH - RIGHT - RIGHT_COLUMN_X;
+    // Full usable width for single-column layout
+    private static final float CONTENT_WIDTH =
+            PAGE_WIDTH - LEFT_MARGIN - RIGHT_MARGIN;
 
     // =========================================================
     // FONTS
@@ -69,46 +62,41 @@ public class PdfAgent {
     private static final Color BLACK = Color.BLACK;
     private static final Color DARK = new Color(45, 45, 45);
     private static final Color GRAY = new Color(95, 95, 95);
-    private static final Color LIGHT_GRAY = new Color(190, 190, 190);
-    private static final Color ACCENT = new Color(35, 65, 95);
+    private static final Color LIGHT_GRAY = new Color(180, 180, 180);
+    private static final Color ACCENT = new Color(30, 70, 120);
 
     // =========================================================
-    // FONT SIZES – slightly reduced for better fit
+    // FONT SIZES
     // =========================================================
 
-    private static final float NAME_SIZE = 22f;
-    private static final float CONTACT_SIZE = 8.5f;
+    private static final float NAME_SIZE = 24f;
+    private static final float CONTACT_SIZE = 9f;
 
-    private static final float SECTION_SIZE = 10f;           // was 10.5
-    private static final float SUMMARY_SIZE = 8.5f;          // was 8.8
-    private static final float PROJECT_TITLE_SIZE = 9f;      // was 9.5
-    private static final float PROJECT_TEXT_SIZE = 8.2f;     // was 8.5
-    private static final float EXPERIENCE_TITLE_SIZE = 9f;   // was 9.5
-    private static final float BODY_SIZE = 8.2f;             // was 8.5
-    private static final float SKILL_SIZE = 8f;              // was 8.3
-    private static final float EDUCATION_TITLE_SIZE = 8.8f;  // was 9
-    private static final float EDUCATION_TEXT_SIZE = 8f;     // was 8.2
+    private static final float SECTION_TITLE_SIZE = 11f;
+    private static final float SUMMARY_SIZE = 9f;
+    private static final float BODY_SIZE = 8.8f;
+    private static final float SUBTITLE_SIZE = 9.2f;
+    private static final float SKILL_SIZE = 8.5f;
+    private static final float BULLET_SIZE = 8.5f;
 
     // =========================================================
     // SPACING
     // =========================================================
 
-    private static final float HEADER_BOTTOM = 14f;
-    private static final float SECTION_TOP = 10f;
-    private static final float SECTION_BOTTOM = 8f;
-    private static final float BLOCK_GAP = 6f;
+    private static final float HEADER_BOTTOM = 12f;
+    private static final float SECTION_TOP = 9f;
+    private static final float SECTION_BOTTOM = 6f;
+    private static final float BLOCK_GAP = 5f;
     private static final float BODY_LEADING = 11f;
-    private static final float BULLET_GAP = 2.5f;
+    private static final float BULLET_GAP = 2f;
 
     // =========================================================
     // PAGE CONTEXT
     // =========================================================
 
-    private static class ColumnContext {
+    private static class Context {
         float y;
-        ColumnContext(float y) {
-            this.y = y;
-        }
+        Context(float y) { this.y = y; }
     }
 
     // =========================================================
@@ -125,21 +113,67 @@ public class PdfAgent {
             document.addPage(page);
 
             try (PDPageContentStream cs = new PDPageContentStream(document, page)) {
-                float headerY = PAGE_HEIGHT - TOP;
-                float headerLineY = writeHeader(document, page, cs, resume, headerY);
+                float startY = PAGE_HEIGHT - TOP_MARGIN;
+                Context ctx = new Context(startY);
 
-                float contentTop = headerLineY - 12f;
-                ColumnContext left = new ColumnContext(contentTop);
-                ColumnContext right = new ColumnContext(contentTop);
+                // ---- Header ----
+                float headerEndY = writeHeader(document, page, cs, resume, ctx);
+                ctx.y = headerEndY - HEADER_BOTTOM;
 
-                writeLeftColumn(document, page, cs, resume, left);
-                writeRightColumn(cs, resume, right);
-                drawColumnDivider(cs, contentTop);
+                // ---- Summary ----
+                if (hasText(resume.getProfessionalSummary())) {
+                    writeSectionTitle(cs, ctx, "PROFESSIONAL SUMMARY");
+                    ctx.y = writeWrapped(cs, ctx, resume.getProfessionalSummary(),
+                            LEFT_MARGIN, CONTENT_WIDTH, SUMMARY_SIZE, REGULAR, BODY_LEADING);
+                    ctx.y -= BLOCK_GAP;
+                }
+
+                // ---- Skills ----
+                SkillsDTO skills = resume.getSkills();
+                if (skills != null) {
+                    writeSectionTitle(cs, ctx, "TECHNICAL SKILLS");
+                    writeSkillsBlock(cs, ctx, skills);
+                    ctx.y -= BLOCK_GAP;
+                }
+
+                // ---- Experience ----
+                if (resume.getExperience() != null && !resume.getExperience().isEmpty()) {
+                    writeSectionTitle(cs, ctx, "EXPERIENCE");
+                    for (ExperienceDTO exp : resume.getExperience()) {
+                        writeExperienceBlock(cs, ctx, exp);
+                    }
+                }
+
+                // ---- Projects ----
+                if (resume.getProjects() != null && !resume.getProjects().isEmpty()) {
+                    writeSectionTitle(cs, ctx, "PROJECTS");
+                    for (ProjectDTO project : resume.getProjects()) {
+                        writeProjectBlock(cs, ctx, project);
+                    }
+                }
+
+                // ---- Education ----
+                if (resume.getEducation() != null && !resume.getEducation().isEmpty()) {
+                    writeSectionTitle(cs, ctx, "EDUCATION");
+                    for (EducationDTO edu : resume.getEducation()) {
+                        writeEducationBlock(cs, ctx, edu);
+                    }
+                }
+
+                // ---- Certifications ----
+                if (resume.getCertifications() != null && !resume.getCertifications().isEmpty()) {
+                    writeSectionTitle(cs, ctx, "CERTIFICATIONS");
+                    for (String cert : resume.getCertifications()) {
+                        if (hasText(cert)) {
+                            writeBullet(cs, ctx, cert);
+                        }
+                    }
+                }
             }
 
-            ByteArrayOutputStream output = new ByteArrayOutputStream();
-            document.save(output);
-            return output.toByteArray();
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            document.save(out);
+            return out.toByteArray();
 
         } catch (IOException e) {
             throw new RuntimeException("Unable to generate resume PDF.", e);
@@ -151,52 +185,51 @@ public class PdfAgent {
     // =========================================================
 
     private float writeHeader(PDDocument document, PDPage page, PDPageContentStream cs,
-                              ImprovedResumeDTO resume, float y) throws IOException {
+                              ImprovedResumeDTO resume, Context ctx) throws IOException {
+        float y = ctx.y;
+
+        // Name
         String name = clean(safe(resume.getFullName()));
         if (hasText(name)) {
             float nameWidth = getTextWidth(name, BOLD, NAME_SIZE);
             float nameX = (PAGE_WIDTH - nameWidth) / 2f;
             drawText(cs, name, nameX, y, BOLD, NAME_SIZE, BLACK);
-            y -= 18f;
+            y -= 20f;
         }
 
+        // Contact info: email, LinkedIn, GitHub
         String email = clean(safe(resume.getEmail()));
         String linkedin = clean(safe(resume.getLinkedin()));
         String github = clean(safe(resume.getGithub()));
-        String separator = "  |  ";
+        String sep = "  |  ";
         StringBuilder contact = new StringBuilder();
-
         if (hasText(email)) contact.append(email);
         if (hasText(linkedin)) {
-            if (contact.length() > 0) contact.append(separator);
+            if (contact.length() > 0) contact.append(sep);
             contact.append(linkedin);
         }
         if (hasText(github)) {
-            if (contact.length() > 0) contact.append(separator);
+            if (contact.length() > 0) contact.append(sep);
             contact.append(github);
         }
-
         String contactText = contact.toString();
         if (hasText(contactText)) {
             float contactWidth = getTextWidth(contactText, REGULAR, CONTACT_SIZE);
             float contactX = (PAGE_WIDTH - contactWidth) / 2f;
             drawText(cs, contactText, contactX, y, REGULAR, CONTACT_SIZE, GRAY);
             createContactLinks(document, page, contactText, contactX, y, email, linkedin, github);
-            y -= 13f;
+            y -= 14f;
         }
 
+        // Horizontal line below header
         cs.setStrokingColor(ACCENT);
-        cs.setLineWidth(1.1f);
-        cs.moveTo(LEFT, y);
-        cs.lineTo(PAGE_WIDTH - RIGHT, y);
+        cs.setLineWidth(1.2f);
+        cs.moveTo(LEFT_MARGIN, y);
+        cs.lineTo(PAGE_WIDTH - RIGHT_MARGIN, y);
         cs.stroke();
 
         return y;
     }
-
-    // =========================================================
-    // CONTACT LINKS
-    // =========================================================
 
     private void createContactLinks(PDDocument document, PDPage page, String fullText,
                                     float startX, float y, String email, String linkedin, String github)
@@ -205,81 +238,20 @@ public class PdfAgent {
         float currentX = startX;
 
         if (hasText(email)) {
-            float width = getTextWidth(email, REGULAR, CONTACT_SIZE);
-            addLink(document, page, email, currentX, y, width, CONTACT_SIZE, "mailto:" + email);
-            currentX += width;
+            float w = getTextWidth(email, REGULAR, CONTACT_SIZE);
+            addLink(document, page, email, currentX, y, w, CONTACT_SIZE, "mailto:" + email);
+            currentX += w;
         }
         if (hasText(linkedin)) {
             if (currentX > startX) currentX += getTextWidth(separator, REGULAR, CONTACT_SIZE);
-            float width = getTextWidth(linkedin, REGULAR, CONTACT_SIZE);
-            addLink(document, page, linkedin, currentX, y, width, CONTACT_SIZE, normalizeUrl(linkedin));
-            currentX += width;
+            float w = getTextWidth(linkedin, REGULAR, CONTACT_SIZE);
+            addLink(document, page, linkedin, currentX, y, w, CONTACT_SIZE, normalizeUrl(linkedin));
+            currentX += w;
         }
         if (hasText(github)) {
             if (currentX > startX) currentX += getTextWidth(separator, REGULAR, CONTACT_SIZE);
-            float width = getTextWidth(github, REGULAR, CONTACT_SIZE);
-            addLink(document, page, github, currentX, y, width, CONTACT_SIZE, normalizeUrl(github));
-        }
-    }
-
-    // =========================================================
-    // LEFT COLUMN
-    // =========================================================
-
-    private void writeLeftColumn(PDDocument document, PDPage page, PDPageContentStream cs,
-                                 ImprovedResumeDTO resume, ColumnContext ctx) throws IOException {
-        SkillsDTO skills = resume.getSkills();
-
-        if (skills != null) {
-            writeSectionTitle(cs, ctx, "TECHNICAL SKILLS", LEFT);
-            writeSkillBlock(cs, ctx, "Languages", skills.getLanguages());
-            writeSkillBlock(cs, ctx, "Frameworks", skills.getFrameworks());
-            writeSkillBlock(cs, ctx, "Databases", skills.getDatabases());
-            writeSkillBlock(cs, ctx, "DevOps & Tools", skills.getDevopsAndTools());
-            writeSkillBlock(cs, ctx, "Concepts", skills.getConcepts());
-        }
-
-        if (resume.getEducation() != null && !resume.getEducation().isEmpty()) {
-            writeSectionTitle(cs, ctx, "EDUCATION", LEFT);
-            for (EducationDTO education : resume.getEducation()) {
-                writeEducationCompact(cs, ctx, education);
-            }
-        }
-
-        if (resume.getCertifications() != null && !resume.getCertifications().isEmpty()) {
-            writeSectionTitle(cs, ctx, "CERTIFICATIONS", LEFT);
-            for (String certification : resume.getCertifications()) {
-                if (hasText(certification)) {
-                    writeLeftBullet(cs, ctx, certification);
-                }
-            }
-        }
-    }
-
-    // =========================================================
-    // RIGHT COLUMN
-    // =========================================================
-
-    private void writeRightColumn(PDPageContentStream cs, ImprovedResumeDTO resume,
-                                  ColumnContext ctx) throws IOException {
-        if (hasText(resume.getProfessionalSummary())) {
-            writeSectionTitle(cs, ctx, "PROFESSIONAL SUMMARY", RIGHT_COLUMN_X);
-            writeWrapped(cs, ctx, resume.getProfessionalSummary(),
-                    RIGHT_COLUMN_X, RIGHT_COLUMN_WIDTH, SUMMARY_SIZE, REGULAR, BODY_LEADING);
-        }
-
-        if (resume.getExperience() != null && !resume.getExperience().isEmpty()) {
-            writeSectionTitle(cs, ctx, "EXPERIENCE", RIGHT_COLUMN_X);
-            for (ExperienceDTO experience : resume.getExperience()) {
-                writeExperienceBlock(cs, ctx, experience);
-            }
-        }
-
-        if (resume.getProjects() != null && !resume.getProjects().isEmpty()) {
-            writeSectionTitle(cs, ctx, "PROJECTS", RIGHT_COLUMN_X);
-            for (ProjectDTO project : resume.getProjects()) {
-                writeProjectBlock(cs, ctx, project);
-            }
+            float w = getTextWidth(github, REGULAR, CONTACT_SIZE);
+            addLink(document, page, github, currentX, y, w, CONTACT_SIZE, normalizeUrl(github));
         }
     }
 
@@ -287,18 +259,19 @@ public class PdfAgent {
     // SECTION TITLE
     // =========================================================
 
-    private void writeSectionTitle(PDPageContentStream cs, ColumnContext ctx,
-                                   String title, float x) throws IOException {
+    private void writeSectionTitle(PDPageContentStream cs, Context ctx, String title)
+            throws IOException {
         ctx.y -= SECTION_TOP;
-        drawText(cs, title, x, ctx.y, BOLD, SECTION_SIZE, ACCENT);
+        drawText(cs, title, LEFT_MARGIN, ctx.y, BOLD, SECTION_TITLE_SIZE, ACCENT);
 
-        float titleWidth = getTextWidth(title, BOLD, SECTION_SIZE);
-        float lineY = ctx.y - 2.5f;
+        float titleWidth = getTextWidth(title, BOLD, SECTION_TITLE_SIZE);
+        float lineY = ctx.y - 3f;
         cs.setStrokingColor(LIGHT_GRAY);
-        cs.setLineWidth(0.5f);
-        cs.moveTo(x + titleWidth + 7f, lineY);
-        cs.lineTo(x + (x == LEFT ? LEFT_COLUMN_WIDTH : RIGHT_COLUMN_WIDTH), lineY);
+        cs.setLineWidth(0.6f);
+        cs.moveTo(LEFT_MARGIN + titleWidth + 8f, lineY);
+        cs.lineTo(PAGE_WIDTH - RIGHT_MARGIN, lineY);
         cs.stroke();
+
         ctx.y -= SECTION_BOTTOM;
     }
 
@@ -306,84 +279,52 @@ public class PdfAgent {
     // SKILLS
     // =========================================================
 
-    private void writeSkillBlock(PDPageContentStream cs, ColumnContext ctx,
-                                 String label, List<String> values) throws IOException {
+    private void writeSkillsBlock(PDPageContentStream cs, Context ctx, SkillsDTO skills)
+            throws IOException {
+        if (skills == null) return;
+
+        writeSkillLine(cs, ctx, "Languages", skills.getLanguages());
+        writeSkillLine(cs, ctx, "Frameworks", skills.getFrameworks());
+        writeSkillLine(cs, ctx, "Databases", skills.getDatabases());
+        writeSkillLine(cs, ctx, "DevOps & Tools", skills.getDevopsAndTools());
+        writeSkillLine(cs, ctx, "Concepts", skills.getConcepts());
+    }
+
+    private void writeSkillLine(PDPageContentStream cs, Context ctx,
+                                String label, List<String> values) throws IOException {
         if (values == null || values.isEmpty()) return;
         String text = clean(String.join(", ", values));
         if (!hasText(text)) return;
 
-        drawText(cs, label, LEFT, ctx.y, BOLD, SKILL_SIZE, DARK);
-        ctx.y -= 10f;
-        ctx.y = writeWrapped(cs, ctx, text, LEFT, LEFT_COLUMN_WIDTH,
+        String line = label + ": " + text;
+        ctx.y = writeWrapped(cs, ctx, line, LEFT_MARGIN, CONTENT_WIDTH,
                 SKILL_SIZE, REGULAR, 10f);
-        ctx.y -= BLOCK_GAP;
-    }
-
-    // =========================================================
-    // EDUCATION
-    // =========================================================
-
-    private void writeEducationCompact(PDPageContentStream cs, ColumnContext ctx,
-                                       EducationDTO education) throws IOException {
-        if (education == null) return;
-
-        String institution = clean(safe(education.getInstitution()));
-        String degree = clean(safe(education.getDegree()));
-        String start = clean(safe(education.getStartDate()));
-        String end = clean(safe(education.getEndDate()));
-
-        drawText(cs, institution, LEFT, ctx.y, BOLD, EDUCATION_TITLE_SIZE, DARK);
-        ctx.y -= 11f;
-
-        if (hasText(degree)) {
-            ctx.y = writeWrapped(cs, ctx, degree, LEFT, LEFT_COLUMN_WIDTH,
-                    EDUCATION_TEXT_SIZE, REGULAR, 9.5f);
-        }
-
-        if (hasText(start) || hasText(end)) {
-            String dates = start;
-            if (hasText(start) && hasText(end)) {
-                dates = start + " - " + end;
-            } else if (hasText(end)) {
-                dates = end;
-            }
-            ctx.y = writeWrapped(cs, ctx, dates, LEFT, LEFT_COLUMN_WIDTH,
-                    EDUCATION_TEXT_SIZE, ITALIC, 9f);
-            ctx.y -= 2f;   // extra gap after education entry
-        }
-
-        ctx.y -= BLOCK_GAP;
+        ctx.y -= 3f;  // small gap between skill lines
     }
 
     // =========================================================
     // EXPERIENCE
     // =========================================================
 
-    private void writeExperienceBlock(PDPageContentStream cs, ColumnContext ctx,
-                                      ExperienceDTO experience) throws IOException {
-        if (experience == null) return;
-
-        String role = clean(safe(experience.getRole()));
-        String company = clean(safe(experience.getCompany()));
+    private void writeExperienceBlock(PDPageContentStream cs, Context ctx,
+                                      ExperienceDTO exp) throws IOException {
+        String role = clean(safe(exp.getRole()));
+        String company = clean(safe(exp.getCompany()));
         String heading = role;
         if (hasText(company)) {
             heading = hasText(heading) ? heading + " | " + company : company;
         }
-
         if (hasText(heading)) {
-            drawText(cs, heading, RIGHT_COLUMN_X, ctx.y, BOLD, EXPERIENCE_TITLE_SIZE, DARK);
+            drawText(cs, heading, LEFT_MARGIN, ctx.y, BOLD, SUBTITLE_SIZE, DARK);
             ctx.y -= 11f;
         }
-
-        if (hasText(experience.getDuration())) {
-            ctx.y = writeWrapped(cs, ctx, clean(experience.getDuration()),
-                    RIGHT_COLUMN_X, RIGHT_COLUMN_WIDTH, EDUCATION_TEXT_SIZE, ITALIC, 9f);
+        if (hasText(exp.getDuration())) {
+            ctx.y = writeWrapped(cs, ctx, clean(exp.getDuration()),
+                    LEFT_MARGIN, CONTENT_WIDTH, BODY_SIZE, ITALIC, 10f);
         }
-
-        if (hasText(experience.getDescription())) {
-            ctx.y = writeBullet(cs, ctx, experience.getDescription());
+        if (hasText(exp.getDescription())) {
+            ctx.y = writeBullet(cs, ctx, exp.getDescription());
         }
-
         ctx.y -= BLOCK_GAP;
     }
 
@@ -391,22 +332,18 @@ public class PdfAgent {
     // PROJECT
     // =========================================================
 
-    private void writeProjectBlock(PDPageContentStream cs, ColumnContext ctx,
+    private void writeProjectBlock(PDPageContentStream cs, Context ctx,
                                    ProjectDTO project) throws IOException {
-        if (project == null) return;
-
         String title = clean(safe(project.getTitle()));
         if (hasText(title)) {
-            drawText(cs, title, RIGHT_COLUMN_X, ctx.y, BOLD, PROJECT_TITLE_SIZE, DARK);
+            drawText(cs, title, LEFT_MARGIN, ctx.y, BOLD, SUBTITLE_SIZE, DARK);
             ctx.y -= 11f;
         }
-
         if (project.getTechnologies() != null && !project.getTechnologies().isEmpty()) {
-            String technologies = clean(String.join(" • ", project.getTechnologies()));
-            ctx.y = writeWrapped(cs, ctx, technologies,
-                    RIGHT_COLUMN_X, RIGHT_COLUMN_WIDTH, PROJECT_TEXT_SIZE, ITALIC, 9f);
+            String tech = clean(String.join(" • ", project.getTechnologies()));
+            ctx.y = writeWrapped(cs, ctx, tech, LEFT_MARGIN, CONTENT_WIDTH,
+                    BODY_SIZE, ITALIC, 10f);
         }
-
         if (project.getHighlights() != null) {
             for (String highlight : project.getHighlights()) {
                 if (hasText(highlight)) {
@@ -414,38 +351,56 @@ public class PdfAgent {
                 }
             }
         }
-
         ctx.y -= BLOCK_GAP;
     }
 
     // =========================================================
-    // LEFT BULLET
+    // EDUCATION
     // =========================================================
 
-    private void writeLeftBullet(PDPageContentStream cs, ColumnContext ctx,
-                                 String text) throws IOException {
-        float bulletX = LEFT;
-        float textX = LEFT + 9f;
+    private void writeEducationBlock(PDPageContentStream cs, Context ctx,
+                                     EducationDTO edu) throws IOException {
+        String institution = clean(safe(edu.getInstitution()));
+        String degree = clean(safe(edu.getDegree()));
+        String start = clean(safe(edu.getStartDate()));
+        String end = clean(safe(edu.getEndDate()));
 
-        drawText(cs, "•", bulletX, ctx.y, REGULAR, SKILL_SIZE, DARK);
-        ctx.y = writeWrapped(cs, ctx, text, textX, LEFT_COLUMN_WIDTH - 9f,
-                SKILL_SIZE, REGULAR, 9.5f);
-        ctx.y -= BULLET_GAP;
+        if (hasText(institution)) {
+            drawText(cs, institution, LEFT_MARGIN, ctx.y, BOLD, SUBTITLE_SIZE, DARK);
+            ctx.y -= 11f;
+        }
+        if (hasText(degree)) {
+            ctx.y = writeWrapped(cs, ctx, degree, LEFT_MARGIN, CONTENT_WIDTH,
+                    BODY_SIZE, REGULAR, 10f);
+        }
+        if (hasText(start) || hasText(end)) {
+            String dates = start;
+            if (hasText(start) && hasText(end)) {
+                dates = start + " - " + end;
+            } else if (hasText(end)) {
+                dates = end;
+            }
+            ctx.y = writeWrapped(cs, ctx, dates, LEFT_MARGIN, CONTENT_WIDTH,
+                    BODY_SIZE, ITALIC, 10f);
+            ctx.y -= 2f;
+        }
+        ctx.y -= BLOCK_GAP;
     }
 
     // =========================================================
-    // RIGHT BULLET
+    // BULLET
     // =========================================================
 
-    private float writeBullet(PDPageContentStream cs, ColumnContext ctx,
-                              String text) throws IOException {
-        float bulletX = RIGHT_COLUMN_X;
-        float textX = RIGHT_COLUMN_X + 9f;
+    private float writeBullet(PDPageContentStream cs, Context ctx, String text)
+            throws IOException {
+        float bulletX = LEFT_MARGIN;
+        float textX = LEFT_MARGIN + 12f;
+        float bulletWidth = CONTENT_WIDTH - 12f;
 
-        drawText(cs, "•", bulletX, ctx.y, REGULAR, BODY_SIZE, DARK);
-        float newY = writeWrapped(cs, ctx, text, textX, RIGHT_COLUMN_WIDTH - 9f,
-                BODY_SIZE, REGULAR, BODY_LEADING);
-        ctx.y = newY - BULLET_GAP;
+        drawText(cs, "•", bulletX, ctx.y, REGULAR, BULLET_SIZE, DARK);
+        ctx.y = writeWrapped(cs, ctx, text, textX, bulletWidth,
+                BULLET_SIZE, REGULAR, BODY_LEADING);
+        ctx.y -= BULLET_GAP;
         return ctx.y;
     }
 
@@ -453,7 +408,7 @@ public class PdfAgent {
     // WRAPPED TEXT
     // =========================================================
 
-    private float writeWrapped(PDPageContentStream cs, ColumnContext ctx,
+    private float writeWrapped(PDPageContentStream cs, Context ctx,
                                String text, float x, float width, float fontSize,
                                PDType1Font font, float leading) throws IOException {
         if (!hasText(text)) return ctx.y;
@@ -464,8 +419,7 @@ public class PdfAgent {
 
         for (String word : words) {
             String test = line.length() == 0 ? word : line + " " + word;
-            float testWidth = getTextWidth(test, font, fontSize);
-            if (testWidth > width && line.length() > 0) {
+            if (getTextWidth(test, font, fontSize) > width && line.length() > 0) {
                 drawText(cs, line.toString(), x, ctx.y, font, fontSize, DARK);
                 ctx.y -= leading;
                 line = new StringBuilder(word);
@@ -473,7 +427,6 @@ public class PdfAgent {
                 line = new StringBuilder(test);
             }
         }
-
         if (line.length() > 0) {
             drawText(cs, line.toString(), x, ctx.y, font, fontSize, DARK);
             ctx.y -= leading;
@@ -482,41 +435,24 @@ public class PdfAgent {
     }
 
     // =========================================================
-    // COLUMN DIVIDER
-    // =========================================================
-
-    private void drawColumnDivider(PDPageContentStream cs, float top) throws IOException {
-        float dividerX = LEFT + LEFT_COLUMN_WIDTH + (COLUMN_GAP / 2f);
-        cs.setStrokingColor(LIGHT_GRAY);
-        cs.setLineWidth(0.45f);
-        cs.moveTo(dividerX, top - 2f);
-        cs.lineTo(dividerX, BOTTOM);
-        cs.stroke();
-    }
-
-    // =========================================================
-    // DRAW TEXT
+    // DRAW TEXT & WIDTH
     // =========================================================
 
     private void drawText(PDPageContentStream cs, String text, float x, float y,
-                          PDType1Font font, float fontSize, Color color) throws IOException {
+                          PDType1Font font, float size, Color color) throws IOException {
         if (!hasText(text)) return;
         cs.beginText();
-        cs.setFont(font, fontSize);
+        cs.setFont(font, size);
         cs.setNonStrokingColor(color);
         cs.newLineAtOffset(x, y);
         cs.showText(clean(text));
         cs.endText();
     }
 
-    // =========================================================
-    // TEXT WIDTH
-    // =========================================================
-
-    private float getTextWidth(String text, PDType1Font font, float fontSize) {
+    private float getTextWidth(String text, PDType1Font font, float size) {
         if (!hasText(text)) return 0f;
         try {
-            return font.getStringWidth(clean(text)) / 1000f * fontSize;
+            return font.getStringWidth(clean(text)) / 1000f * size;
         } catch (IOException e) {
             return 0f;
         }
@@ -531,12 +467,12 @@ public class PdfAgent {
             throws IOException {
         if (!hasText(url)) return;
         PDAnnotationLink link = new PDAnnotationLink();
-        PDRectangle rectangle = new PDRectangle();
-        rectangle.setLowerLeftX(x);
-        rectangle.setLowerLeftY(y - 2f);
-        rectangle.setUpperRightX(x + width);
-        rectangle.setUpperRightY(y + fontSize + 2f);
-        link.setRectangle(rectangle);
+        PDRectangle rect = new PDRectangle();
+        rect.setLowerLeftX(x);
+        rect.setLowerLeftY(y - 2f);
+        rect.setUpperRightX(x + width);
+        rect.setUpperRightY(y + fontSize + 2f);
+        link.setRectangle(rect);
         link.setHighlightMode(PDAnnotationLink.HIGHLIGHT_MODE_NONE);
         PDActionURI action = new PDActionURI();
         action.setURI(url);
@@ -544,48 +480,28 @@ public class PdfAgent {
         page.getAnnotations().add(link);
     }
 
-    // =========================================================
-    // URL
-    // =========================================================
-
     private String normalizeUrl(String url) {
         if (!hasText(url)) return "";
-        if (url.startsWith("http://") || url.startsWith("https://")) {
-            return url;
-        }
+        if (url.startsWith("http://") || url.startsWith("https://")) return url;
         return "https://" + url;
     }
 
     // =========================================================
-    // CLEAN
+    // HELPERS
     // =========================================================
 
     private String clean(String value) {
         if (value == null) return "";
-        return value
-                .replace("\r", " ")
-                .replace("\n", " ")
-                .replace("\u2013", "-")
-                .replace("\u2014", "-")
-                .replace("\u2018", "'")
-                .replace("\u2019", "'")
-                .replace("\u201C", "\"")
-                .replace("\u201D", "\"")
-                .replaceAll("\\s+", " ")
-                .trim();
+        return value.replace("\r", " ").replace("\n", " ")
+                .replace("\u2013", "-").replace("\u2014", "-")
+                .replace("\u2018", "'").replace("\u2019", "'")
+                .replace("\u201C", "\"").replace("\u201D", "\"")
+                .replaceAll("\\s+", " ").trim();
     }
-
-    // =========================================================
-    // SAFE
-    // =========================================================
 
     private String safe(String value) {
         return value == null ? "" : value;
     }
-
-    // =========================================================
-    // HAS TEXT
-    // =========================================================
 
     private boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
