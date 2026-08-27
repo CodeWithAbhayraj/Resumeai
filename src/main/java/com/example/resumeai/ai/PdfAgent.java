@@ -26,544 +26,1400 @@ import java.util.List;
 public class PdfAgent {
 
     // =========================================================
-    // PAGE DIMENSIONS
+    // PAGE
     // =========================================================
-    private static final PDRectangle PAGE_SIZE  = PDRectangle.A4;
-    private static final float PAGE_WIDTH       = PAGE_SIZE.getWidth();
-    private static final float PAGE_HEIGHT      = PAGE_SIZE.getHeight();
 
-    private static final float LEFT_MARGIN      = 52f;
-    private static final float RIGHT_MARGIN     = 52f;
-    private static final float TOP_MARGIN       = 38f;
-    private static final float BOTTOM_MARGIN    = 30f;
+    private static final PDRectangle PAGE_SIZE = PDRectangle.A4;
 
-    private static final float CONTENT_WIDTH    = PAGE_WIDTH - LEFT_MARGIN - RIGHT_MARGIN;  // ADDED
+    private static final float PAGE_WIDTH = PAGE_SIZE.getWidth();
+    private static final float PAGE_HEIGHT = PAGE_SIZE.getHeight();
+
+    private static final float LEFT = 38f;
+    private static final float RIGHT = 38f;
+    private static final float TOP = 35f;
+    private static final float BOTTOM = 30f;
+
+    // Two-column layout
+    private static final float LEFT_COLUMN_WIDTH = 155f;
+    private static final float COLUMN_GAP = 25f;
+
+    private static final float RIGHT_COLUMN_X =
+            LEFT + LEFT_COLUMN_WIDTH + COLUMN_GAP;
+
+    private static final float RIGHT_COLUMN_WIDTH =
+            PAGE_WIDTH - RIGHT - RIGHT_COLUMN_X;
 
     // =========================================================
     // FONTS
     // =========================================================
+
     private static final PDType1Font REGULAR =
-            new PDType1Font(Standard14Fonts.FontName.TIMES_ROMAN);
+            new PDType1Font(Standard14Fonts.FontName.HELVETICA);
+
     private static final PDType1Font BOLD =
-            new PDType1Font(Standard14Fonts.FontName.TIMES_BOLD);
+            new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
+
     private static final PDType1Font ITALIC =
-            new PDType1Font(Standard14Fonts.FontName.TIMES_ITALIC);
-    private static final PDType1Font BOLD_ITALIC =
-            new PDType1Font(Standard14Fonts.FontName.TIMES_BOLD_ITALIC);
-
-    // =========================================================
-    // FONT SIZES (adjusted to match sample exactly)
-    // =========================================================
-    private static final float NAME_SIZE                = 20f;
-    private static final float CONTACT_SIZE             = 9f;
-    private static final float SECTION_SIZE             = 11f;
-    private static final float SUMMARY_SIZE             = 9.5f;
-    private static final float PROJECT_TITLE_SIZE       = 10.5f;
-    private static final float PROJECT_TECH_SIZE        = 9f;
-    private static final float BULLET_SIZE              = 9f;
-    private static final float EDUCATION_INST_SIZE      = 10f;
-    private static final float EDUCATION_DETAIL_SIZE    = 9f;
-    private static final float DATE_SIZE                = 9f;
-    private static final float CERTIFICATION_SIZE       = 9f;
-    private static final float SKILLS_SIZE              = 9f;
-
-    // =========================================================
-    // SPACING (fine‑tuned for one‑page fit)
-    // =========================================================
-    private static final float AFTER_NAME           = 14f;
-    private static final float AFTER_CONTACT        = 10f;
-    private static final float BEFORE_SECTION       = 4f;
-    private static final float AFTER_SECTION_TITLE  = 12f;
-    private static final float AFTER_BLOCK          = 3f;
-
-    private static final float SUMMARY_LEADING      = 2.2f;
-    private static final float BULLET_LEADING       = 2.0f;
-    private static final float SKILL_LEADING        = 1.8f;
-    private static final float AFTER_SKILL_ROW      = 1f;
-
-    // Bullet offsets
-    private static final float BULLET_CHAR_X        = LEFT_MARGIN + 8f;
-    private static final float BULLET_TEXT_X        = LEFT_MARGIN + 20f;
+            new PDType1Font(Standard14Fonts.FontName.HELVETICA_OBLIQUE);
 
     // =========================================================
     // COLORS
     // =========================================================
-    private static final Color BLACK     = Color.BLACK;
-    private static final Color LINK_BLUE = new Color(0, 70, 180);
+
+    private static final Color BLACK = Color.BLACK;
+
+    private static final Color DARK =
+            new Color(45, 45, 45);
+
+    private static final Color GRAY =
+            new Color(95, 95, 95);
+
+    private static final Color LIGHT_GRAY =
+            new Color(190, 190, 190);
+
+    private static final Color ACCENT =
+            new Color(35, 65, 95);
+
+    // =========================================================
+    // FONT SIZES
+    // =========================================================
+
+    private static final float NAME_SIZE = 22f;
+    private static final float CONTACT_SIZE = 8.5f;
+
+    private static final float SECTION_SIZE = 10.5f;
+
+    private static final float SUMMARY_SIZE = 8.8f;
+
+    private static final float PROJECT_TITLE_SIZE = 9.5f;
+    private static final float PROJECT_TEXT_SIZE = 8.5f;
+
+    private static final float EXPERIENCE_TITLE_SIZE = 9.5f;
+
+    private static final float BODY_SIZE = 8.5f;
+
+    private static final float SKILL_SIZE = 8.3f;
+
+    private static final float EDUCATION_TITLE_SIZE = 9f;
+    private static final float EDUCATION_TEXT_SIZE = 8.2f;
+
+    // =========================================================
+    // SPACING
+    // =========================================================
+
+    private static final float HEADER_BOTTOM = 15f;
+
+    private static final float SECTION_TOP = 12f;
+    private static final float SECTION_BOTTOM = 6f;
+
+    private static final float BLOCK_GAP = 5f;
+
+    private static final float BODY_LEADING = 11f;
 
     // =========================================================
     // PAGE CONTEXT
     // =========================================================
-    private static class PageContext {
+
+    private static class ColumnContext {
+
         float y;
-        PageContext(float y) { this.y = y; }
+
+        ColumnContext(float y) {
+            this.y = y;
+        }
     }
 
     // =========================================================
-    // MAIN ENTRY
+    // MAIN
     // =========================================================
+
     public byte[] generateResumePdf(ImprovedResumeDTO resume) {
+
         if (resume == null) {
-            throw new IllegalArgumentException("Resume data cannot be null.");
+            throw new IllegalArgumentException(
+                    "Resume data cannot be null."
+            );
         }
 
         try (PDDocument document = new PDDocument()) {
+
             PDPage page = new PDPage(PAGE_SIZE);
             document.addPage(page);
 
-            PageContext ctx = new PageContext(PAGE_HEIGHT - TOP_MARGIN);
+            try (PDPageContentStream cs =
+                         new PDPageContentStream(document, page)) {
 
-            try (PDPageContentStream cs = new PDPageContentStream(document, page)) {
-                // 1. NAME
-                writeName(cs, ctx, resume.getFullName());
+                // -------------------------------------------------
+                // HEADER
+                // -------------------------------------------------
 
-                // 2. CONTACT
-                writeContactInfo(document, page, cs, ctx,
-                        resume.getEmail(),
-                        resume.getLinkedin(),
-                        resume.getGithub());
+                float headerY = PAGE_HEIGHT - TOP;
 
-                ctx.y -= AFTER_CONTACT;
+                writeHeader(
+                        document,
+                        page,
+                        cs,
+                        resume,
+                        headerY
+                );
 
-                // 3. SUMMARY
-                if (hasText(resume.getProfessionalSummary())) {
-                    writeSectionTitle(cs, ctx, "Summary");
-                    writeWrappedText(cs, ctx,
-                            resume.getProfessionalSummary(),
-                            LEFT_MARGIN, SUMMARY_SIZE, REGULAR, SUMMARY_LEADING);
-                    ctx.y -= AFTER_BLOCK;
-                }
+                // -------------------------------------------------
+                // COLUMNS
+                // -------------------------------------------------
 
-                // 4. PROJECTS
-                if (resume.getProjects() != null && !resume.getProjects().isEmpty()) {
-                    writeSectionTitle(cs, ctx, "Projects");
-                    for (ProjectDTO p : resume.getProjects()) {
-                        writeProject(cs, ctx, p);
-                        ctx.y -= AFTER_BLOCK;
-                    }
-                }
+                float contentTop =
+                        headerY - HEADER_BOTTOM;
 
-                // 5. EDUCATION
-                if (resume.getEducation() != null && !resume.getEducation().isEmpty()) {
-                    writeSectionTitle(cs, ctx, "Education");
-                    for (EducationDTO e : resume.getEducation()) {
-                        writeEducation(cs, ctx, e);
-                        ctx.y -= AFTER_BLOCK;
-                    }
-                }
+                ColumnContext left =
+                        new ColumnContext(contentTop);
 
-                // 6. EXPERIENCE (if any)
-                if (resume.getExperience() != null && !resume.getExperience().isEmpty()) {
-                    writeSectionTitle(cs, ctx, "Experience");
-                    for (ExperienceDTO e : resume.getExperience()) {
-                        writeExperience(cs, ctx, e);
-                        ctx.y -= AFTER_BLOCK;
-                    }
-                }
+                ColumnContext right =
+                        new ColumnContext(contentTop);
 
-                // 7. CERTIFICATIONS
-                if (resume.getCertifications() != null && !resume.getCertifications().isEmpty()) {
-                    writeSectionTitle(cs, ctx, "Certifications");
-                    for (String cert : resume.getCertifications()) {
-                        if (hasText(cert)) {
-                            writeCertificationBullet(cs, ctx, cert);
-                        }
-                    }
-                    ctx.y -= AFTER_BLOCK;
-                }
+                // -------------------------------------------------
+                // LEFT COLUMN
+                // -------------------------------------------------
 
-                // 8. TECHNICAL SKILLS
-                SkillsDTO skills = resume.getSkills();
-                if (skills != null) {
-                    writeSectionTitle(cs, ctx, "Technical Skills");
-                    writeSkillLine(cs, ctx, "Languages:",    skills.getLanguages());
-                    writeSkillLine(cs, ctx, "Frameworks:",   skills.getFrameworks());
-                    writeSkillLine(cs, ctx, "Databases:",    skills.getDatabases());
-                    writeSkillLine(cs, ctx, "DevOps & Tools:", skills.getDevopsAndTools());
-                    writeSkillLine(cs, ctx, "Concepts:",     skills.getConcepts());
-                }
+                writeLeftColumn(
+                        document,
+                        page,
+                        cs,
+                        resume,
+                        left
+                );
 
-                // Guard against overflow
-                if (ctx.y < BOTTOM_MARGIN) {
-                    throw new RuntimeException(
-                            "Resume content exceeds one A4 page. Please reduce content.");
-                }
+                // -------------------------------------------------
+                // RIGHT COLUMN
+                // -------------------------------------------------
+
+                writeRightColumn(
+                        cs,
+                        resume,
+                        right
+                );
+
+                // -------------------------------------------------
+                // COLUMN DIVIDER
+                // -------------------------------------------------
+
+                drawColumnDivider(
+                        cs,
+                        contentTop
+                );
             }
 
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            document.save(out);
-            return out.toByteArray();
+            ByteArrayOutputStream output =
+                    new ByteArrayOutputStream();
+
+            document.save(output);
+
+            return output.toByteArray();
 
         } catch (IOException e) {
-            throw new RuntimeException("Unable to generate resume PDF.", e);
+
+            throw new RuntimeException(
+                    "Unable to generate resume PDF.",
+                    e
+            );
         }
     }
 
     // =========================================================
-    // NAME
+    // HEADER
     // =========================================================
-    private void writeName(PDPageContentStream cs, PageContext ctx, String name) throws IOException {
-        if (!hasText(name)) return;
-        String text = clean(name);
-        float width = getTextWidth(text, BOLD, NAME_SIZE);
-        float x = (PAGE_WIDTH - width) / 2f;
-        drawText(cs, text, x, ctx.y, BOLD, NAME_SIZE, BLACK);
-        ctx.y -= AFTER_NAME;
-    }
 
-    // =========================================================
-    // CONTACT INFO (centered, with clickable links)
-    // =========================================================
-    private void writeContactInfo(PDDocument document, PDPage page,
-                                  PDPageContentStream cs, PageContext ctx,
-                                  String email, String linkedin, String github) throws IOException {
-        String emailText    = clean(safe(email));
-        String linkedinText = clean(safe(linkedin));
-        String githubText   = clean(safe(github));
-        String sep          = "   \u2014   ";   // em‑dash with spaces
+    private void writeHeader(
+            PDDocument document,
+            PDPage page,
+            PDPageContentStream cs,
+            ImprovedResumeDTO resume,
+            float y
+    ) throws IOException {
 
-        int count = 0;
-        if (hasText(emailText))    count++;
-        if (hasText(linkedinText)) count++;
-        if (hasText(githubText))   count++;
-        if (count == 0) return;
+        String name =
+                clean(safe(resume.getFullName()));
 
-        float emailW    = getTextWidth(emailText,    REGULAR, CONTACT_SIZE);
-        float linkedinW = getTextWidth(linkedinText, REGULAR, CONTACT_SIZE);
-        float githubW   = getTextWidth(githubText,   REGULAR, CONTACT_SIZE);
-        float sepW      = getTextWidth(sep,          REGULAR, CONTACT_SIZE);
+        if (hasText(name)) {
 
-        float totalW = emailW + linkedinW + githubW + ((count - 1) * sepW);
-        float x = (PAGE_WIDTH - totalW) / 2f;
+            float nameWidth =
+                    getTextWidth(
+                            name,
+                            BOLD,
+                            NAME_SIZE
+                    );
 
-        // Email
-        if (hasText(emailText)) {
-            drawContactLink(document, page, cs, emailText, x, ctx.y, emailW, CONTACT_SIZE, null);
-            x += emailW;
+            float nameX =
+                    (PAGE_WIDTH - nameWidth) / 2f;
+
+            drawText(
+                    cs,
+                    name,
+                    nameX,
+                    y,
+                    BOLD,
+                    NAME_SIZE,
+                    BLACK
+            );
+
+            y -= 18f;
         }
 
-        // LinkedIn
-        if (hasText(linkedinText)) {
-            if (hasText(emailText)) {
-                drawText(cs, sep, x, ctx.y, REGULAR, CONTACT_SIZE, BLACK);
-                x += sepW;
+        // Contact row
+
+        String email =
+                clean(safe(resume.getEmail()));
+
+        String linkedin =
+                clean(safe(resume.getLinkedin()));
+
+        String github =
+                clean(safe(resume.getGithub()));
+
+        String separator = "  |  ";
+
+        StringBuilder contact =
+                new StringBuilder();
+
+        if (hasText(email)) {
+            contact.append(email);
+        }
+
+        if (hasText(linkedin)) {
+
+            if (contact.length() > 0) {
+                contact.append(separator);
             }
-            drawContactLink(document, page, cs, linkedinText, x, ctx.y, linkedinW, CONTACT_SIZE, linkedinText);
-            x += linkedinW;
+
+            contact.append(linkedin);
         }
 
-        // GitHub
-        if (hasText(githubText)) {
-            if (hasText(emailText) || hasText(linkedinText)) {
-                drawText(cs, sep, x, ctx.y, REGULAR, CONTACT_SIZE, BLACK);
-                x += sepW;
+        if (hasText(github)) {
+
+            if (contact.length() > 0) {
+                contact.append(separator);
             }
-            drawContactLink(document, page, cs, githubText, x, ctx.y, githubW, CONTACT_SIZE, githubText);
+
+            contact.append(github);
         }
 
-        ctx.y -= 13f;
-    }
+        String contactText =
+                contact.toString();
 
-    // =========================================================
-    // CLICKABLE LINK
-    // =========================================================
-    private void drawContactLink(PDDocument document, PDPage page,
-                                 PDPageContentStream cs, String text,
-                                 float x, float y, float width, float fontSize, String url) throws IOException {
-        drawText(cs, text, x, y, REGULAR, fontSize, LINK_BLUE);
+        if (hasText(contactText)) {
 
-        if (!hasText(url)) return;
+            float contactWidth =
+                    getTextWidth(
+                            contactText,
+                            REGULAR,
+                            CONTACT_SIZE
+                    );
 
-        PDAnnotationLink link = new PDAnnotationLink();
-        PDRectangle rect = new PDRectangle();
-        rect.setLowerLeftX(x);
-        rect.setLowerLeftY(y - 2f);
-        rect.setUpperRightX(x + width);
-        rect.setUpperRightY(y + fontSize + 2f);
-        link.setRectangle(rect);
-        link.setHighlightMode(PDAnnotationLink.HIGHLIGHT_MODE_NONE);
+            float contactX =
+                    (PAGE_WIDTH - contactWidth) / 2f;
 
-        PDActionURI action = new PDActionURI();
-        action.setURI(url.startsWith("http://") || url.startsWith("https://")
-                ? url : "https://" + url);
-        link.setAction(action);
-        page.getAnnotations().add(link);
-    }
+            drawText(
+                    cs,
+                    contactText,
+                    contactX,
+                    y,
+                    REGULAR,
+                    CONTACT_SIZE,
+                    GRAY
+            );
 
-    // =========================================================
-    // SECTION TITLE (bold + underline rule)
-    // =========================================================
-    private void writeSectionTitle(PDPageContentStream cs, PageContext ctx, String title) throws IOException {
-        if (!hasText(title)) return;
-        ctx.y -= BEFORE_SECTION;
-        ensureSpace(ctx, 18f);
+            // Clickable links
+            createContactLinks(
+                    document,
+                    page,
+                    contactText,
+                    contactX,
+                    y,
+                    email,
+                    linkedin,
+                    github
+            );
 
-        float titleWidth = getTextWidth(title, BOLD, SECTION_SIZE);
-        drawText(cs, title, LEFT_MARGIN, ctx.y, BOLD, SECTION_SIZE, BLACK);
+            y -= 13f;
+        }
 
-        float lineY = ctx.y - 2.5f;
-        cs.setStrokingColor(BLACK);
-        cs.setLineWidth(0.5f);
-        cs.moveTo(LEFT_MARGIN + titleWidth + 6f, lineY);
-        cs.lineTo(PAGE_WIDTH - RIGHT_MARGIN, lineY);
+        // Header line
+
+        cs.setStrokingColor(ACCENT);
+        cs.setLineWidth(1.1f);
+
+        cs.moveTo(
+                LEFT,
+                y
+        );
+
+        cs.lineTo(
+                PAGE_WIDTH - RIGHT,
+                y
+        );
+
         cs.stroke();
-
-        ctx.y -= AFTER_SECTION_TITLE;
     }
 
     // =========================================================
-    // PROJECT
+    // CONTACT LINKS
     // =========================================================
-    private void writeProject(PDPageContentStream cs, PageContext ctx, ProjectDTO project) throws IOException {
-        if (project == null) return;
-        ensureSpace(ctx, 14f);
 
-        String title = clean(safe(project.getTitle()));
-        String technologies = "";
-        if (project.getTechnologies() != null && !project.getTechnologies().isEmpty()) {
-            technologies = clean(String.join(" | ", project.getTechnologies()));
+    private void createContactLinks(
+            PDDocument document,
+            PDPage page,
+            String fullText,
+            float startX,
+            float y,
+            String email,
+            String linkedin,
+            String github
+    ) throws IOException {
+
+        String separator = "  |  ";
+
+        float currentX = startX;
+
+        if (hasText(email)) {
+
+            float width =
+                    getTextWidth(
+                            email,
+                            REGULAR,
+                            CONTACT_SIZE
+                    );
+
+            addLink(
+                    document,
+                    page,
+                    email,
+                    currentX,
+                    y,
+                    width,
+                    CONTACT_SIZE,
+                    "mailto:" + email
+            );
+
+            currentX += width;
         }
 
-        float titleWidth = getTextWidth(title, BOLD, PROJECT_TITLE_SIZE);
-        float techWidth  = getTextWidth(technologies, ITALIC, PROJECT_TECH_SIZE);
+        if (hasText(linkedin)) {
 
-        // Header: title left, tech stack right (if fits)
-        if (hasText(technologies) && titleWidth + techWidth + 25f <= CONTENT_WIDTH) {
-            drawText(cs, title, LEFT_MARGIN, ctx.y, BOLD, PROJECT_TITLE_SIZE, BLACK);
-            float techX = PAGE_WIDTH - RIGHT_MARGIN - techWidth;
-            drawText(cs, technologies, techX, ctx.y, ITALIC, PROJECT_TECH_SIZE, BLACK);
-            ctx.y -= (PROJECT_TITLE_SIZE + 3f);
-        } else {
-            drawText(cs, title, LEFT_MARGIN, ctx.y, BOLD, PROJECT_TITLE_SIZE, BLACK);
-            ctx.y -= (PROJECT_TITLE_SIZE + 3f);
-            if (hasText(technologies)) {
-                writeWrappedText(cs, ctx, technologies, LEFT_MARGIN, PROJECT_TECH_SIZE, ITALIC, 1.5f);
+            if (currentX > startX) {
+
+                currentX +=
+                        getTextWidth(
+                                separator,
+                                REGULAR,
+                                CONTACT_SIZE
+                        );
+            }
+
+            float width =
+                    getTextWidth(
+                            linkedin,
+                            REGULAR,
+                            CONTACT_SIZE
+                    );
+
+            addLink(
+                    document,
+                    page,
+                    linkedin,
+                    currentX,
+                    y,
+                    width,
+                    CONTACT_SIZE,
+                    normalizeUrl(linkedin)
+            );
+
+            currentX += width;
+        }
+
+        if (hasText(github)) {
+
+            if (currentX > startX) {
+
+                currentX +=
+                        getTextWidth(
+                                separator,
+                                REGULAR,
+                                CONTACT_SIZE
+                        );
+            }
+
+            float width =
+                    getTextWidth(
+                            github,
+                            REGULAR,
+                            CONTACT_SIZE
+                    );
+
+            addLink(
+                    document,
+                    page,
+                    github,
+                    currentX,
+                    y,
+                    width,
+                    CONTACT_SIZE,
+                    normalizeUrl(github)
+            );
+        }
+    }
+
+    // =========================================================
+    // LEFT COLUMN
+    // =========================================================
+
+    private void writeLeftColumn(
+            PDDocument document,
+            PDPage page,
+            PDPageContentStream cs,
+            ImprovedResumeDTO resume,
+            ColumnContext ctx
+    ) throws IOException {
+
+        SkillsDTO skills =
+                resume.getSkills();
+
+        // -------------------------------------------------
+        // SKILLS
+        // -------------------------------------------------
+
+        if (skills != null) {
+
+            writeSectionTitle(
+                    cs,
+                    ctx,
+                    "TECHNICAL SKILLS",
+                    LEFT
+            );
+
+            writeSkillBlock(
+                    cs,
+                    ctx,
+                    "Languages",
+                    skills.getLanguages()
+            );
+
+            writeSkillBlock(
+                    cs,
+                    ctx,
+                    "Frameworks",
+                    skills.getFrameworks()
+            );
+
+            writeSkillBlock(
+                    cs,
+                    ctx,
+                    "Databases",
+                    skills.getDatabases()
+            );
+
+            writeSkillBlock(
+                    cs,
+                    ctx,
+                    "DevOps & Tools",
+                    skills.getDevopsAndTools()
+            );
+
+            writeSkillBlock(
+                    cs,
+                    ctx,
+                    "Concepts",
+                    skills.getConcepts()
+            );
+        }
+
+        // -------------------------------------------------
+        // EDUCATION
+        // -------------------------------------------------
+
+        if (resume.getEducation() != null &&
+                !resume.getEducation().isEmpty()) {
+
+            writeSectionTitle(
+                    cs,
+                    ctx,
+                    "EDUCATION",
+                    LEFT
+            );
+
+            for (EducationDTO education :
+                    resume.getEducation()) {
+
+                writeEducationCompact(
+                        cs,
+                        ctx,
+                        education
+                );
             }
         }
 
-        // Bullets
-        if (project.getHighlights() != null) {
-            for (String highlight : project.getHighlights()) {
-                if (hasText(highlight)) {
-                    writeBullet(cs, ctx, highlight, BULLET_SIZE);
+        // -------------------------------------------------
+        // CERTIFICATIONS
+        // -------------------------------------------------
+
+        if (resume.getCertifications() != null &&
+                !resume.getCertifications().isEmpty()) {
+
+            writeSectionTitle(
+                    cs,
+                    ctx,
+                    "CERTIFICATIONS",
+                    LEFT
+            );
+
+            for (String certification :
+                    resume.getCertifications()) {
+
+                if (hasText(certification)) {
+
+                    writeLeftBullet(
+                            cs,
+                            ctx,
+                            certification
+                    );
                 }
             }
         }
+    }
+
+    // =========================================================
+    // RIGHT COLUMN
+    // =========================================================
+
+    private void writeRightColumn(
+            PDPageContentStream cs,
+            ImprovedResumeDTO resume,
+            ColumnContext ctx
+    ) throws IOException {
+
+        // -------------------------------------------------
+        // SUMMARY
+        // -------------------------------------------------
+
+        if (hasText(
+                resume.getProfessionalSummary()
+        )) {
+
+            writeSectionTitle(
+                    cs,
+                    ctx,
+                    "PROFESSIONAL SUMMARY",
+                    RIGHT_COLUMN_X
+            );
+
+            writeWrapped(
+                    cs,
+                    ctx,
+                    resume.getProfessionalSummary(),
+                    RIGHT_COLUMN_X,
+                    RIGHT_COLUMN_WIDTH,
+                    SUMMARY_SIZE,
+                    REGULAR,
+                    BODY_LEADING
+            );
+        }
+
+        // -------------------------------------------------
+        // EXPERIENCE
+        // -------------------------------------------------
+
+        if (resume.getExperience() != null &&
+                !resume.getExperience().isEmpty()) {
+
+            writeSectionTitle(
+                    cs,
+                    ctx,
+                    "EXPERIENCE",
+                    RIGHT_COLUMN_X
+            );
+
+            for (ExperienceDTO experience :
+                    resume.getExperience()) {
+
+                writeExperienceBlock(
+                        cs,
+                        ctx,
+                        experience
+                );
+            }
+        }
+
+        // -------------------------------------------------
+        // PROJECTS
+        // -------------------------------------------------
+
+        if (resume.getProjects() != null &&
+                !resume.getProjects().isEmpty()) {
+
+            writeSectionTitle(
+                    cs,
+                    ctx,
+                    "PROJECTS",
+                    RIGHT_COLUMN_X
+            );
+
+            for (ProjectDTO project :
+                    resume.getProjects()) {
+
+                writeProjectBlock(
+                        cs,
+                        ctx,
+                        project
+                );
+            }
+        }
+    }
+
+    // =========================================================
+    // SECTION TITLE
+    // =========================================================
+
+    private void writeSectionTitle(
+            PDPageContentStream cs,
+            ColumnContext ctx,
+            String title,
+            float x
+    ) throws IOException {
+
+        ctx.y -= SECTION_TOP;
+
+        drawText(
+                cs,
+                title,
+                x,
+                ctx.y,
+                BOLD,
+                SECTION_SIZE,
+                ACCENT
+        );
+
+        float titleWidth =
+                getTextWidth(
+                        title,
+                        BOLD,
+                        SECTION_SIZE
+                );
+
+        float lineY =
+                ctx.y - 2.5f;
+
+        cs.setStrokingColor(
+                LIGHT_GRAY
+        );
+
+        cs.setLineWidth(
+                0.5f
+        );
+
+        cs.moveTo(
+                x + titleWidth + 7f,
+                lineY
+        );
+
+        cs.lineTo(
+                x + (
+                        x == LEFT
+                                ? LEFT_COLUMN_WIDTH
+                                : RIGHT_COLUMN_WIDTH
+                ),
+                lineY
+        );
+
+        cs.stroke();
+
+        ctx.y -= SECTION_BOTTOM;
+    }
+
+    // =========================================================
+    // SKILLS
+    // =========================================================
+
+    private void writeSkillBlock(
+            PDPageContentStream cs,
+            ColumnContext ctx,
+            String label,
+            List<String> values
+    ) throws IOException {
+
+        if (values == null ||
+                values.isEmpty()) {
+            return;
+        }
+
+        String text =
+                clean(
+                        String.join(
+                                ", ",
+                                values
+                        )
+                );
+
+        if (!hasText(text)) {
+            return;
+        }
+
+        drawText(
+                cs,
+                label,
+                LEFT,
+                ctx.y,
+                BOLD,
+                SKILL_SIZE,
+                DARK
+        );
+
+        ctx.y -= 10f;
+
+        ctx.y = writeWrapped(
+                cs,
+                ctx,
+                text,
+                LEFT,
+                LEFT_COLUMN_WIDTH,
+                SKILL_SIZE,
+                REGULAR,
+                10f
+        );
+
+        ctx.y -= BLOCK_GAP;
     }
 
     // =========================================================
     // EDUCATION
     // =========================================================
-    private void writeEducation(PDPageContentStream cs, PageContext ctx, EducationDTO education) throws IOException {
-        if (education == null) return;
-        ensureSpace(ctx, 22f);
 
-        String institution = clean(safe(education.getInstitution()));
-        String degree      = clean(safe(education.getDegree()));
-        String startDate   = clean(safe(education.getStartDate()));
-        String endDate     = clean(safe(education.getEndDate()));
+    private void writeEducationCompact(
+            PDPageContentStream cs,
+            ColumnContext ctx,
+            EducationDTO education
+    ) throws IOException {
 
-        String dates = "";
-        if (hasText(startDate) && hasText(endDate)) dates = startDate + " \u2013 " + endDate;
-        else if (hasText(startDate))               dates = startDate;
-        else if (hasText(endDate))                 dates = endDate;
-
-        float dateWidth = getTextWidth(dates, ITALIC, DATE_SIZE);
-
-        // Institution + dates on same line
-        drawText(cs, institution, LEFT_MARGIN, ctx.y, BOLD, EDUCATION_INST_SIZE, BLACK);
-        if (hasText(dates)) {
-            float dateX = PAGE_WIDTH - RIGHT_MARGIN - dateWidth;
-            drawText(cs, dates, dateX, ctx.y, ITALIC, DATE_SIZE, BLACK);
+        if (education == null) {
+            return;
         }
-        ctx.y -= (EDUCATION_INST_SIZE + 2f);
 
-        // Degree below
+        String institution =
+                clean(
+                        safe(
+                                education.getInstitution()
+                        )
+                );
+
+        String degree =
+                clean(
+                        safe(
+                                education.getDegree()
+                        )
+                );
+
+        String start =
+                clean(
+                        safe(
+                                education.getStartDate()
+                        )
+                );
+
+        String end =
+                clean(
+                        safe(
+                                education.getEndDate()
+                        )
+                );
+
+        drawText(
+                cs,
+                institution,
+                LEFT,
+                ctx.y,
+                BOLD,
+                EDUCATION_TITLE_SIZE,
+                DARK
+        );
+
+        ctx.y -= 11f;
+
         if (hasText(degree)) {
-            writeWrappedText(cs, ctx, degree, LEFT_MARGIN, EDUCATION_DETAIL_SIZE, REGULAR, 1.5f);
+
+            ctx.y = writeWrapped(
+                    cs,
+                    ctx,
+                    degree,
+                    LEFT,
+                    LEFT_COLUMN_WIDTH,
+                    EDUCATION_TEXT_SIZE,
+                    REGULAR,
+                    9.5f
+            );
         }
+
+        if (hasText(start) ||
+                hasText(end)) {
+
+            String dates = start;
+
+            if (hasText(start) &&
+                    hasText(end)) {
+
+                dates =
+                        start +
+                                " - " +
+                                end;
+            } else if (hasText(end)) {
+
+                dates = end;
+            }
+
+            ctx.y = writeWrapped(
+                    cs,
+                    ctx,
+                    dates,
+                    LEFT,
+                    LEFT_COLUMN_WIDTH,
+                    EDUCATION_TEXT_SIZE,
+                    ITALIC,
+                    9f
+            );
+        }
+
+        ctx.y -= BLOCK_GAP;
     }
 
     // =========================================================
     // EXPERIENCE
     // =========================================================
-    private void writeExperience(PDPageContentStream cs, PageContext ctx, ExperienceDTO experience) throws IOException {
-        if (experience == null) return;
-        ensureSpace(ctx, 20f);
 
-        String role    = clean(safe(experience.getRole()));
-        String company = clean(safe(experience.getCompany()));
+    private void writeExperienceBlock(
+            PDPageContentStream cs,
+            ColumnContext ctx,
+            ExperienceDTO experience
+    ) throws IOException {
+
+        if (experience == null) {
+            return;
+        }
+
+        String role =
+                clean(
+                        safe(
+                                experience.getRole()
+                        )
+                );
+
+        String company =
+                clean(
+                        safe(
+                                experience.getCompany()
+                        )
+                );
+
         String heading = role;
+
         if (hasText(company)) {
-            heading = hasText(heading) ? heading + " \u2013 " + company : company;
+
+            if (hasText(heading)) {
+
+                heading =
+                        heading +
+                                " | " +
+                                company;
+
+            } else {
+
+                heading = company;
+            }
         }
 
         if (hasText(heading)) {
-            drawText(cs, heading, LEFT_MARGIN, ctx.y, BOLD, EDUCATION_INST_SIZE, BLACK);
-            ctx.y -= (EDUCATION_INST_SIZE + 2f);
+
+            drawText(
+                    cs,
+                    heading,
+                    RIGHT_COLUMN_X,
+                    ctx.y,
+                    BOLD,
+                    EXPERIENCE_TITLE_SIZE,
+                    DARK
+            );
+
+            ctx.y -= 11f;
         }
 
-        if (hasText(experience.getDuration())) {
-            writeWrappedText(cs, ctx, clean(experience.getDuration()),
-                    LEFT_MARGIN, EDUCATION_DETAIL_SIZE, REGULAR, 1.5f);
+        if (hasText(
+                experience.getDuration()
+        )) {
+
+            ctx.y = writeWrapped(
+                    cs,
+                    ctx,
+                    clean(
+                            experience.getDuration()
+                    ),
+                    RIGHT_COLUMN_X,
+                    RIGHT_COLUMN_WIDTH,
+                    EDUCATION_TEXT_SIZE,
+                    ITALIC,
+                    9f
+            );
         }
 
-        if (hasText(experience.getDescription())) {
-            writeBullet(cs, ctx, experience.getDescription(), BULLET_SIZE);
+        if (hasText(
+                experience.getDescription()
+        )) {
+
+            ctx.y = writeBullet(
+                    cs,
+                    ctx,
+                    experience.getDescription()
+            );
         }
+
+        ctx.y -= BLOCK_GAP;
     }
 
     // =========================================================
-    // CERTIFICATION BULLET (bold name, regular issuer)
+    // PROJECT
     // =========================================================
-    private void writeCertificationBullet(PDPageContentStream cs, PageContext ctx, String certText) throws IOException {
-        if (!hasText(certText)) return;
-        ensureSpace(ctx, CERTIFICATION_SIZE + 4f);
 
-        // Split on " - " or " – "
-        String certName = certText;
-        String certIssuer = null;
-        int dashIdx = certText.indexOf(" - ");
-        if (dashIdx == -1) dashIdx = certText.indexOf(" \u2013 ");
-        if (dashIdx != -1) {
-            certName   = clean(certText.substring(0, dashIdx));
-            certIssuer = clean(certText.substring(dashIdx).replaceFirst("^\\s*[-\u2013]\\s*", ""));
+    private void writeProjectBlock(
+            PDPageContentStream cs,
+            ColumnContext ctx,
+            ProjectDTO project
+    ) throws IOException {
+
+        if (project == null) {
+            return;
         }
 
-        // Bullet char
-        drawText(cs, "\u2022", BULLET_CHAR_X, ctx.y, REGULAR, CERTIFICATION_SIZE, BLACK);
+        String title =
+                clean(
+                        safe(
+                                project.getTitle()
+                        )
+                );
 
-        float curX = BULLET_TEXT_X;
-        float nameW = getTextWidth(certName, BOLD, CERTIFICATION_SIZE);
-        drawText(cs, certName, curX, ctx.y, BOLD, CERTIFICATION_SIZE, BLACK);
-        curX += nameW;
+        if (hasText(title)) {
 
-        if (hasText(certIssuer)) {
-            String issuerWithDash = " \u2013 " + certIssuer;
-            drawText(cs, issuerWithDash, curX, ctx.y, REGULAR, CERTIFICATION_SIZE, BLACK);
+            drawText(
+                    cs,
+                    title,
+                    RIGHT_COLUMN_X,
+                    ctx.y,
+                    BOLD,
+                    PROJECT_TITLE_SIZE,
+                    DARK
+            );
+
+            ctx.y -= 11f;
         }
 
-        ctx.y -= (CERTIFICATION_SIZE + BULLET_LEADING);
-    }
+        // Technologies
 
-    // =========================================================
-    // SKILL ROW (dynamic label column width)
-    // =========================================================
-    private void writeSkillLine(PDPageContentStream cs, PageContext ctx,
-                                String category, List<String> skills) throws IOException {
-        if (skills == null || skills.isEmpty()) return;
-        String skillText = clean(String.join(", ", skills));
-        if (!hasText(skillText)) return;
+        if (project.getTechnologies() != null &&
+                !project.getTechnologies().isEmpty()) {
 
-        ensureSpace(ctx, SKILLS_SIZE + 3f);
+            String technologies =
+                    clean(
+                            String.join(
+                                    " • ",
+                                    project.getTechnologies()
+                            )
+                    );
 
-        // Compute the widest label among all categories (for consistent alignment)
-        // We'll do it lazily: use a fixed width that covers "DevOps & Tools:"
-        float labelColW = getTextWidth("DevOps & Tools:", BOLD, SKILLS_SIZE) + 12f;
-        float skillX = LEFT_MARGIN + labelColW;
+            ctx.y = writeWrapped(
+                    cs,
+                    ctx,
+                    technologies,
+                    RIGHT_COLUMN_X,
+                    RIGHT_COLUMN_WIDTH,
+                    PROJECT_TEXT_SIZE,
+                    ITALIC,
+                    9f
+            );
+        }
 
-        drawText(cs, category, LEFT_MARGIN, ctx.y, BOLD, SKILLS_SIZE, BLACK);
-        writeWrappedText(cs, ctx, skillText, skillX, SKILLS_SIZE, REGULAR, SKILL_LEADING);
+        // Highlights
 
-        ctx.y -= AFTER_SKILL_ROW;
-    }
+        if (project.getHighlights() != null) {
 
-    // =========================================================
-    // BULLET (bullet char + wrapped text)
-    // =========================================================
-    private void writeBullet(PDPageContentStream cs, PageContext ctx, String text, float fontSize) throws IOException {
-        if (!hasText(text)) return;
-        ensureSpace(ctx, fontSize + 3f);
+            for (String highlight :
+                    project.getHighlights()) {
 
-        drawText(cs, "\u2022", BULLET_CHAR_X, ctx.y, REGULAR, fontSize, BLACK);
-        writeWrappedText(cs, ctx, text, BULLET_TEXT_X, fontSize, REGULAR, BULLET_LEADING);
-    }
+                if (hasText(highlight)) {
 
-    // =========================================================
-    // WRAPPED TEXT (word‑wrap within right margin)
-    // =========================================================
-    private void writeWrappedText(PDPageContentStream cs, PageContext ctx,
-                                  String text, float x, float fontSize,
-                                  PDType1Font font, float extraSpacing) throws IOException {
-        if (!hasText(text)) return;
-
-        String cleaned = clean(text);
-        String[] words = cleaned.split("\\s+");
-        StringBuilder line = new StringBuilder();
-        float availableW = PAGE_WIDTH - RIGHT_MARGIN - x;
-
-        for (String word : words) {
-            String testLine = line.isEmpty() ? word : line + " " + word;
-            float testW = getTextWidth(testLine, font, fontSize);
-            if (testW > availableW && !line.isEmpty()) {
-                writeLine(cs, ctx, line.toString(), x, fontSize, font, extraSpacing);
-                line = new StringBuilder(word);
-            } else {
-                line = new StringBuilder(testLine);
+                    ctx.y = writeBullet(
+                            cs,
+                            ctx,
+                            highlight
+                    );
+                }
             }
         }
-        if (!line.isEmpty()) {
-            writeLine(cs, ctx, line.toString(), x, fontSize, font, extraSpacing);
-        }
+
+        ctx.y -= BLOCK_GAP;
     }
 
     // =========================================================
-    // WRITE ONE LINE
+    // LEFT BULLET
     // =========================================================
-    private void writeLine(PDPageContentStream cs, PageContext ctx,
-                           String text, float x, float fontSize,
-                           PDType1Font font, float extraSpacing) throws IOException {
-        ensureSpace(ctx, fontSize + extraSpacing + 1f);
-        drawText(cs, text, x, ctx.y, font, fontSize, BLACK);
-        ctx.y -= (fontSize + extraSpacing);
+
+    private void writeLeftBullet(
+            PDPageContentStream cs,
+            ColumnContext ctx,
+            String text
+    ) throws IOException {
+
+        float bulletX = LEFT;
+
+        float textX = LEFT + 9f;
+
+        drawText(
+                cs,
+                "•",
+                bulletX,
+                ctx.y,
+                REGULAR,
+                SKILL_SIZE,
+                DARK
+        );
+
+        ctx.y = writeWrapped(
+                cs,
+                ctx,
+                text,
+                textX,
+                LEFT_COLUMN_WIDTH - 9f,
+                SKILL_SIZE,
+                REGULAR,
+                9.5f
+        );
+
+        ctx.y -= 2f;
+    }
+
+    // =========================================================
+    // RIGHT BULLET
+    // =========================================================
+
+    private float writeBullet(
+            PDPageContentStream cs,
+            ColumnContext ctx,
+            String text
+    ) throws IOException {
+
+        float bulletX =
+                RIGHT_COLUMN_X;
+
+        float textX =
+                RIGHT_COLUMN_X + 9f;
+
+        drawText(
+                cs,
+                "•",
+                bulletX,
+                ctx.y,
+                REGULAR,
+                BODY_SIZE,
+                DARK
+        );
+
+        return writeWrapped(
+                cs,
+                ctx,
+                text,
+                textX,
+                RIGHT_COLUMN_WIDTH - 9f,
+                BODY_SIZE,
+                REGULAR,
+                BODY_LEADING
+        );
+    }
+
+    // =========================================================
+    // WRAPPED TEXT
+    // =========================================================
+
+    private float writeWrapped(
+            PDPageContentStream cs,
+            ColumnContext ctx,
+            String text,
+            float x,
+            float width,
+            float fontSize,
+            PDType1Font font,
+            float leading
+    ) throws IOException {
+
+        if (!hasText(text)) {
+            return ctx.y;
+        }
+
+        String cleaned =
+                clean(text);
+
+        String[] words =
+                cleaned.split("\\s+");
+
+        StringBuilder line =
+                new StringBuilder();
+
+        for (String word : words) {
+
+            String test =
+                    line.length() == 0
+                            ? word
+                            : line + " " + word;
+
+            float testWidth =
+                    getTextWidth(
+                            test,
+                            font,
+                            fontSize
+                    );
+
+            if (testWidth > width &&
+                    line.length() > 0) {
+
+                drawText(
+                        cs,
+                        line.toString(),
+                        x,
+                        ctx.y,
+                        font,
+                        fontSize,
+                        DARK
+                );
+
+                ctx.y -= leading;
+
+                line =
+                        new StringBuilder(word);
+
+            } else {
+
+                line =
+                        new StringBuilder(test);
+            }
+        }
+
+        if (line.length() > 0) {
+
+            drawText(
+                    cs,
+                    line.toString(),
+                    x,
+                    ctx.y,
+                    font,
+                    fontSize,
+                    DARK
+            );
+
+            ctx.y -= leading;
+        }
+
+        return ctx.y;
+    }
+
+    // =========================================================
+    // COLUMN DIVIDER
+    // =========================================================
+
+    private void drawColumnDivider(
+            PDPageContentStream cs,
+            float top
+    ) throws IOException {
+
+        float dividerX =
+                LEFT +
+                        LEFT_COLUMN_WIDTH +
+                        (COLUMN_GAP / 2f);
+
+        cs.setStrokingColor(
+                LIGHT_GRAY
+        );
+
+        cs.setLineWidth(
+                0.45f
+        );
+
+        cs.moveTo(
+                dividerX,
+                top - 2f
+        );
+
+        cs.lineTo(
+                dividerX,
+                BOTTOM
+        );
+
+        cs.stroke();
     }
 
     // =========================================================
     // DRAW TEXT
     // =========================================================
-    private void drawText(PDPageContentStream cs, String text,
-                          float x, float y, PDType1Font font,
-                          float fontSize, Color color) throws IOException {
-        if (!hasText(text)) return;
+
+    private void drawText(
+            PDPageContentStream cs,
+            String text,
+            float x,
+            float y,
+            PDType1Font font,
+            float fontSize,
+            Color color
+    ) throws IOException {
+
+        if (!hasText(text)) {
+            return;
+        }
+
         cs.beginText();
-        cs.setFont(font, fontSize);
-        cs.setNonStrokingColor(color);
-        cs.newLineAtOffset(x, y);
-        cs.showText(clean(text));
+
+        cs.setFont(
+                font,
+                fontSize
+        );
+
+        cs.setNonStrokingColor(
+                color
+        );
+
+        cs.newLineAtOffset(
+                x,
+                y
+        );
+
+        cs.showText(
+                clean(text)
+        );
+
         cs.endText();
     }
 
     // =========================================================
     // TEXT WIDTH
     // =========================================================
-    private float getTextWidth(String text, PDType1Font font, float fontSize) {
-        if (!hasText(text)) return 0f;
+
+    private float getTextWidth(
+            String text,
+            PDType1Font font,
+            float fontSize
+    ) {
+
+        if (!hasText(text)) {
+            return 0f;
+        }
+
         try {
-            return font.getStringWidth(clean(text)) / 1000f * fontSize;
+
+            return font.getStringWidth(
+                    clean(text)
+            ) / 1000f * fontSize;
+
         } catch (IOException e) {
+
             return 0f;
         }
     }
 
     // =========================================================
-    // SPACE GUARD
+    // LINK
     // =========================================================
-    private void ensureSpace(PageContext ctx, float requiredHeight) {
-        if (ctx.y - requiredHeight < BOTTOM_MARGIN) {
-            throw new RuntimeException(
-                    "Resume content exceeds one A4 page. Please reduce resume content.");
+
+    private void addLink(
+            PDDocument document,
+            PDPage page,
+            String text,
+            float x,
+            float y,
+            float width,
+            float fontSize,
+            String url
+    ) throws IOException {
+
+        if (!hasText(url)) {
+            return;
         }
+
+        PDAnnotationLink link =
+                new PDAnnotationLink();
+
+        PDRectangle rectangle =
+                new PDRectangle();
+
+        rectangle.setLowerLeftX(x);
+
+        rectangle.setLowerLeftY(
+                y - 2f
+        );
+
+        rectangle.setUpperRightX(
+                x + width
+        );
+
+        rectangle.setUpperRightY(
+                y + fontSize + 2f
+        );
+
+        link.setRectangle(
+                rectangle
+        );
+
+        link.setHighlightMode(
+                PDAnnotationLink.HIGHLIGHT_MODE_NONE
+        );
+
+        PDActionURI action =
+                new PDActionURI();
+
+        action.setURI(
+                url
+        );
+
+        link.setAction(
+                action
+        );
+
+        page.getAnnotations()
+                .add(link);
     }
 
     // =========================================================
-    // HELPERS
+    // URL
     // =========================================================
-    private String safe(String v)    { return v == null ? "" : v; }
-    private boolean hasText(String v) { return v != null && !v.trim().isEmpty(); }
 
-    private String clean(String v) {
-        if (v == null) return "";
-        return v
+    private String normalizeUrl(
+            String url
+    ) {
+
+        if (!hasText(url)) {
+            return "";
+        }
+
+        if (url.startsWith("http://") ||
+                url.startsWith("https://")) {
+
+            return url;
+        }
+
+        return "https://" + url;
+    }
+
+    // =========================================================
+    // CLEAN
+    // =========================================================
+
+    private String clean(
+            String value
+    ) {
+
+        if (value == null) {
+            return "";
+        }
+
+        return value
                 .replace("\r", " ")
                 .replace("\n", " ")
                 .replace("\u2013", "-")
@@ -572,8 +1428,33 @@ public class PdfAgent {
                 .replace("\u2019", "'")
                 .replace("\u201C", "\"")
                 .replace("\u201D", "\"")
-                .replace("\u2022", "\u2022")
                 .replaceAll("\\s+", " ")
                 .trim();
     }
+
+    // =========================================================
+    // SAFE
+    // =========================================================
+
+    private String safe(
+            String value
+    ) {
+
+        return value == null
+                ? ""
+                : value;
+    }
+
+    // =========================================================
+    // HAS TEXT
+    // =========================================================
+
+    private boolean hasText(
+            String value
+    ) {
+
+        return value != null &&
+                !value.trim().isEmpty();
+    }
 }
+
