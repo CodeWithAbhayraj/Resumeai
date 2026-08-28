@@ -48,25 +48,56 @@ public class GeminiService {
 
             String message = e.getMessage();
 
-            if (message != null && message.contains("429")) {
+            System.out.println("========== GEMINI ERROR ==========");
+            System.out.println(message);
+            System.out.println("===================================");
 
-                throw new RuntimeException(
-                        "Gemini API quota exceeded. " +
-                                "Please wait for quota reset or use another Gemini API project."
+            // ==========================================
+            // QUOTA / RATE LIMIT
+            // ==========================================
+
+            if (message != null &&
+                    (
+                            message.contains("429") ||
+                                    message.contains("quota") ||
+                                    message.contains("Quota") ||
+                                    message.contains("RESOURCE_EXHAUSTED") ||
+                                    message.contains("rate limit")
+                    )) {
+
+                throw new GeminiServiceException(
+                        "AI server is currently busy or the usage limit has been reached. " +
+                                "Please try again later."
                 );
             }
 
-            if (message != null && message.contains("503")) {
 
-                throw new RuntimeException(
-                        "Gemini API is temporarily unavailable because the model " +
-                                "is experiencing high demand. Please try again later."
+            // ==========================================
+            // GEMINI SERVER BUSY / HIGH DEMAND
+            // ==========================================
+
+            if (message != null &&
+                    (
+                            message.contains("503") ||
+                                    message.contains("high demand") ||
+                                    message.contains("temporarily unavailable") ||
+                                    message.contains("UNAVAILABLE")
+                    )) {
+
+                throw new GeminiServiceException(
+                        "AI server is currently busy due to high demand. " +
+                                "Please try again later."
                 );
             }
 
-            throw new RuntimeException(
-                    "Error while calling Gemini API: " + message,
-                    e
+
+            // ==========================================
+            // OTHER GEMINI ERROR
+            // ==========================================
+
+            throw new GeminiServiceException(
+                    "AI service is temporarily unavailable. " +
+                            "Please try again later."
             );
         }
     }
