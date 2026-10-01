@@ -38,6 +38,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleGeneralException(
             Exception ex) {
 
+
         ex.printStackTrace();
 
         return ResponseEntity
