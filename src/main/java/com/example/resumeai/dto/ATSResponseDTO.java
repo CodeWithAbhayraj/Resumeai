@@ -13,6 +13,7 @@ public class ATSResponseDTO {
     // Skills present in both Resume & JD
     private List<String> matchedSkills;
 
+
     // Skills missing from Resume
     private List<String> missingSkills;
 
