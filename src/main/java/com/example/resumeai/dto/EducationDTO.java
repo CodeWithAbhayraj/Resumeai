@@ -18,5 +18,4 @@ public class EducationDTO {
     private String startDate;
 
     private String endDate;
-
 }
