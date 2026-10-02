@@ -12,4 +12,5 @@ public class ProjectDTO {
     private List<String> technologies;
 
     private List<String> highlights;
+
 }
