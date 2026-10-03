@@ -18,4 +18,5 @@ public class JDResponseDTO {
     private String education;
 
     private List<String> responsibilities;
+
 }
