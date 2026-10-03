@@ -18,5 +18,6 @@ public class AiController {
 
         return geminiService.askGemini("Say Hello from Gemini AI");
 
+
     }
 }
