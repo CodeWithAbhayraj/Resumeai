@@ -26,5 +26,4 @@ public class ResumeResponseDTO {
     private String github;
 
     private String linkedin;
-
 }
