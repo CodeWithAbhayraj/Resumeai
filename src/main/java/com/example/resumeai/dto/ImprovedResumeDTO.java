@@ -16,6 +16,7 @@ public class ImprovedResumeDTO {
 
     private String linkedin;
 
+
     // Professional Summary
     private String professionalSummary;
 
