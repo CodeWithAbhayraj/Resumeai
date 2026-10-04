@@ -24,5 +24,4 @@ public class ATSResponseDTO {
 
     // AI recommendations to improve resume
     private List<String> suggestions;
-
 }
