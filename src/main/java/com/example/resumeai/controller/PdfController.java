@@ -22,7 +22,8 @@ public class PdfController {
     )
     public ResponseEntity<byte[]> generatePdf(
             @RequestBody ImprovedResumeDTO resume
-    ) {
+    )
+    {
         byte[] pdf =
                 pdfService.generateResumePdf(resume);
 
