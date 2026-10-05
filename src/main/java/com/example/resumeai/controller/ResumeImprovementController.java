@@ -36,5 +36,6 @@ public class ResumeImprovementController {
                 );
 
         return ResponseEntity.ok(response);
+
     }
 }
