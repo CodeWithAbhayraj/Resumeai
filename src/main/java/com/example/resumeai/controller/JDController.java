@@ -17,7 +17,6 @@ public class JDController {
     public ResponseEntity<JDResponseDTO> analyzeJobDescription(
             @RequestBody String jobDescription
     ) {
-
         JDResponseDTO response =
                 jdService.analyzeJobDescription(jobDescription);
 
