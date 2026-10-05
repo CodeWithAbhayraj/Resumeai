@@ -67,5 +67,4 @@ JOB DESCRIPTION
 %s
 
 """;
-
 }
