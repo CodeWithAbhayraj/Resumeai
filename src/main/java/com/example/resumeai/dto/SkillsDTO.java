@@ -13,5 +13,4 @@ public class SkillsDTO {
     private List<String> devopsAndTools;
     private List<String> concepts;
 
-
 }
